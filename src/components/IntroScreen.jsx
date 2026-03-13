@@ -44,24 +44,43 @@ export default function IntroScreen({ userId, onComplete, isSettings = false, on
         let finalUserId = userId;
 
         // Adoption logic: prioritze IP match then Name match
-        if (ipMatch && ipMatch.id !== userId) {
-           finalUserId = ipMatch.id;
-        } else if (nameMatch && nameMatch.id !== userId) {
-           finalUserId = nameMatch.id;
+        // Only adopt if we are currently "anonymous" or "new"
+        const isNewUser = !localStorage.getItem('wizzRouteRushUsername');
+        
+        if (isNewUser) {
+          if (ipMatch && ipMatch.id !== userId) {
+            finalUserId = ipMatch.id;
+          } else if (nameMatch && nameMatch.id !== userId) {
+            finalUserId = nameMatch.id;
+          }
+        } else {
+          // If we ARE an existing user (in settings), we check if the name is taken by SOMEONE ELSE
+          if (nameMatch && nameMatch.id !== userId) {
+            alert("This username is already taken. Please choose another one.");
+            setIsSubmitting(false);
+            return;
+          }
         }
 
         if (finalUserId !== userId) {
            localStorage.setItem('wizzRouteRushUserId', finalUserId);
         }
 
+        // Prepare update data
+        const updateData = { 
+          id: finalUserId, 
+          username: trimmedName 
+        };
+        
+        // Only include IP if we found one
+        if (currentIp) {
+          updateData.ip = currentIp;
+        }
+
         // Sync to Supabase using the persistent ID
         const { error } = await supabase
           .from('leaderboard')
-          .upsert({ 
-            id: finalUserId, 
-            username: trimmedName,
-            ip: currentIp // Store IP for future lookups
-          }, { onConflict: 'id' });
+          .upsert(updateData, { onConflict: 'id' });
 
         if (error) {
           console.error("Failed to sync username:", error);

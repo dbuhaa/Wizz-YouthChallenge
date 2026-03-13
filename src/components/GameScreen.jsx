@@ -10,6 +10,7 @@ export default function GameScreen({ onGameOver, activePlane = 'a320neo' }) {
   const [hudShield, setHudShield] = useState(false);
   const [hudSpeedBoost, setHudSpeedBoost] = useState(false);
   const [hudTurbulence, setHudTurbulence] = useState(false);
+  const [hudDownturn, setHudDownturn] = useState(false);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -50,6 +51,8 @@ export default function GameScreen({ onGameOver, activePlane = 'a320neo' }) {
     let hasShield = false;
     let speedBoostTimeMs = 0;
     const SPEED_BOOST_DURATION_MS = 1000;
+    let downturnTimeMs = 0;
+    const DOWNTURN_DURATION_MS = 7000;
 
     // === TURBULENCE STATE ===
     let turbulenceTimeMs = 0;
@@ -325,6 +328,22 @@ export default function GameScreen({ onGameOver, activePlane = 'a320neo' }) {
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
           ctx.fillText('2X', perk.x, perk.y);
+        } else if (perk.type === 'downturn') {
+          ctx.save();
+          ctx.fillStyle = 'rgba(100, 100, 100, 0.4)';
+          ctx.beginPath();
+          ctx.arc(perk.x, perk.y, r + 6, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = '#444';
+          ctx.beginPath();
+          ctx.arc(perk.x, perk.y, r, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+          ctx.fillStyle = '#fff';
+          ctx.font = `bold ${Math.floor(r)}px Nunito`;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText('⚓', perk.x, perk.y);
         }
       });
     };
@@ -380,6 +399,20 @@ export default function GameScreen({ onGameOver, activePlane = 'a320neo' }) {
           setHudSpeedBoost(false);
         }
       }
+
+      if (downturnTimeMs > 0) {
+        downturnTimeMs -= dt;
+        if (downturnTimeMs <= 0) {
+          setHudDownturn(false);
+        }
+      }
+
+      // Update player dimensions based on downturn
+      const baseWidth = activePlane === 'a321neo' ? 90 : 60;
+      const baseHeight = activePlane === 'a321neo' ? 95 : 70;
+      const scale = downturnTimeMs > 0 ? 1.5 : 1.0;
+      player.width = baseWidth * scale;
+      player.height = baseHeight * scale;
 
       // Smooth player interpolation (dt dependent)
       const targetX = getLaneX(player.lane);
@@ -438,10 +471,11 @@ export default function GameScreen({ onGameOver, activePlane = 'a320neo' }) {
           const spawnLane = Math.floor(Math.random() * NUM_LANES);
           const roll = Math.random();
           let perkType = 'shield';
-          if (roll > 0.66) perkType = 'speed';
-          else if (roll > 0.33) perkType = 'multiplier';
+          if (roll > 0.75) perkType = 'speed';
+          else if (roll > 0.50) perkType = 'multiplier';
+          else if (roll > 0.25) perkType = 'downturn';
           
-          if (!(perkType === 'shield' && hasShield) && !(perkType === 'multiplier' && multiplierTimerMs > 0)) {
+          if (!(perkType === 'shield' && hasShield) && !(perkType === 'multiplier' && multiplierTimerMs > 0) && !(perkType === 'downturn' && downturnTimeMs > 0)) {
             perks.push({
               x: getLaneX(spawnLane),
               y: -50,
@@ -520,6 +554,9 @@ export default function GameScreen({ onGameOver, activePlane = 'a320neo' }) {
           } else if (perk.type === 'multiplier') {
             multiplierTimerMs = 10000; // 10 seconds
             setMultiplier(2);
+          } else if (perk.type === 'downturn') {
+            downturnTimeMs = DOWNTURN_DURATION_MS;
+            setHudDownturn(true);
           }
           perks.splice(i, 1);
         } else if (perk.y > height + 50) {
@@ -599,6 +636,9 @@ export default function GameScreen({ onGameOver, activePlane = 'a320neo' }) {
           )}
           {hudTurbulence && (
             <div className="hud-perk turbulence-perk">⚠ Turbulence</div>
+          )}
+          {hudDownturn && (
+            <div className="hud-perk downturn-perk">⚠ Downturn (Size ++)</div>
           )}
           {multiplier > 1 && (
             <div className="game-multiplier pulse">
