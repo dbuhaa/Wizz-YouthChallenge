@@ -35,19 +35,23 @@ export default function GameScreen({ onGameOver, activePlane = 'a320neo' }) {
 
     // Game State
     let animationFrameId;
+    let lastTime = performance.now();
     let isGameRunning = true;
     let currentScore = 0;
-    let gameSpeed = 4;
+    
+    // Base Speed: Pixels per second instead of pixels per frame (4 * 60 = 240)
+    let gameSpeedPPS = 240; 
+    let elapsedTimeMs = 0;
 
     // === PERK STATE ===
-    let hasShield = false;        // Invincible perk: one-time survival
-    let speedBoostTimer = 0;      // Speed boost: frames remaining
-    const SPEED_BOOST_DURATION = 60; // ~1 second at 60fps
+    let hasShield = false;
+    let speedBoostTimeMs = 0;
+    const SPEED_BOOST_DURATION_MS = 1000;
 
     // === TURBULENCE STATE ===
-    let turbulenceTimer = 0;
-    const TURBULENCE_DURATION = 45; // ~0.75 seconds
-    let lastTurbulenceMilestone = 0; // Track which 10k milestone last triggered
+    let turbulenceTimeMs = 0;
+    const TURBULENCE_DURATION_MS = 750;
+    let lastTurbulenceMilestone = 0;
     let turbulenceShakeX = 0;
     let turbulenceShakeY = 0;
 
@@ -59,13 +63,13 @@ export default function GameScreen({ onGameOver, activePlane = 'a320neo' }) {
         y: Math.random() * height,
         w: 60 + Math.random() * 100,
         h: 25 + Math.random() * 40,
-        speed: 0.3 + Math.random() * 0.5,
+        speedPPS: 20 + Math.random() * 30, // Pixels per second
         opacity: 0.15 + Math.random() * 0.25
       });
     }
 
     // === PERK COLLECTIBLES ===
-    const perks = []; // { x, y, radius, type: 'shield' | 'speed' }
+    const perks = []; 
 
     // Load Sprites
     const baseUrl = import.meta.env.BASE_URL;
@@ -98,11 +102,13 @@ export default function GameScreen({ onGameOver, activePlane = 'a320neo' }) {
     // Entities Arrays
     const obstacles = [];
     const collectibles = [];
-    let frameCount = 0;
+    
+    // Spawning timers (ms)
+    let timeSinceLastSpawn = 0;
 
     // === INPUT HANDLERS ===
     const handleKeyDown = (e) => {
-      if (turbulenceTimer > 0) return; // Can't steer during turbulence
+      if (turbulenceTimeMs > 0) return;
       if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') {
         player.lane = Math.max(0, player.lane - 1);
       } else if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') {
@@ -111,7 +117,7 @@ export default function GameScreen({ onGameOver, activePlane = 'a320neo' }) {
     };
 
     const handlePointerDown = (e) => {
-      if (turbulenceTimer > 0) return;
+      if (turbulenceTimeMs > 0) return;
       const rect = canvas.getBoundingClientRect();
       const clientX = e.touches ? e.touches[0].clientX : e.clientX;
       const x = clientX - rect.left;
@@ -119,7 +125,7 @@ export default function GameScreen({ onGameOver, activePlane = 'a320neo' }) {
     };
 
     const handlePointerMove = (e) => {
-      if (turbulenceTimer > 0) return;
+      if (turbulenceTimeMs > 0) return;
       if(!e.touches && e.buttons !== 1) return;
       const rect = canvas.getBoundingClientRect();
       const clientX = e.touches ? e.touches[0].clientX : e.clientX;
@@ -133,14 +139,13 @@ export default function GameScreen({ onGameOver, activePlane = 'a320neo' }) {
 
     // === DRAWING FUNCTIONS ===
 
-    const drawSkyBackground = () => {
-      // Use cached sky gradient
+    const drawSkyBackground = (dt) => {
       ctx.fillStyle = skyGrad;
       ctx.fillRect(0, 0, width, height);
 
-      // Scrolling clouds
+      // Scrolling clouds (dt based)
       clouds.forEach(cloud => {
-        cloud.y += cloud.speed + (gameSpeed * 0.3);
+        cloud.y += (cloud.speedPPS + gameSpeedPPS * 0.3) * (dt / 1000);
         if (cloud.y > height + 50) {
           cloud.y = -cloud.h - 20;
           cloud.x = Math.random() * width;
@@ -148,13 +153,11 @@ export default function GameScreen({ onGameOver, activePlane = 'a320neo' }) {
         }
 
         ctx.fillStyle = `rgba(255, 255, 255, ${cloud.opacity})`;
-        // Draw clouds as soft rounded shapes
         ctx.beginPath();
         const cx = cloud.x;
         const cy = cloud.y;
         ctx.ellipse(cx, cy, cloud.w / 2, cloud.h / 2, 0, 0, Math.PI * 2);
         ctx.fill();
-        // Smaller puffs for organic look
         ctx.beginPath();
         ctx.ellipse(cx - cloud.w * 0.3, cy + 3, cloud.w * 0.25, cloud.h * 0.35, 0, 0, Math.PI * 2);
         ctx.fill();
@@ -167,7 +170,7 @@ export default function GameScreen({ onGameOver, activePlane = 'a320neo' }) {
       ctx.strokeStyle = 'rgba(255,255,255,0.2)';
       ctx.lineWidth = 2;
       ctx.setLineDash([30, 20]);
-      const offset = (frameCount * gameSpeed) % 50;
+      const offset = (elapsedTimeMs / 1000 * gameSpeedPPS) % 50;
       for (let lane = 1; lane < NUM_LANES; lane++) {
         const lx = (width * lane) / NUM_LANES;
         ctx.beginPath();
@@ -179,7 +182,7 @@ export default function GameScreen({ onGameOver, activePlane = 'a320neo' }) {
     };
 
     const drawPlayer = () => {
-      // Shield glow effect (optimized, no shadowBlur)
+      // Shield glow effect
       if (hasShield) {
         ctx.save();
         ctx.strokeStyle = 'rgba(0, 255, 136, 0.8)';
@@ -188,14 +191,13 @@ export default function GameScreen({ onGameOver, activePlane = 'a320neo' }) {
         ctx.arc(player.x, player.y, player.width * 0.7, 0, Math.PI * 2);
         ctx.stroke();
         
-        // Inner faint glow
         ctx.fillStyle = 'rgba(0, 255, 136, 0.2)';
         ctx.fill();
         ctx.restore();
       }
 
       // Speed boost trail
-      if (speedBoostTimer > 0) {
+      if (speedBoostTimeMs > 0) {
         ctx.save();
         ctx.globalAlpha = 0.3;
         ctx.fillStyle = '#ffd700';
@@ -226,7 +228,6 @@ export default function GameScreen({ onGameOver, activePlane = 'a320neo' }) {
     };
 
     const drawEntities = () => {
-      // Obstacles
       obstacles.forEach(obs => {
         let drawImg = stormImg;
         if (obs.type === 'enemy') drawImg = enemyImg;
@@ -239,7 +240,6 @@ export default function GameScreen({ onGameOver, activePlane = 'a320neo' }) {
         }
       });
 
-      // Collectibles (Coins)
       collectibles.forEach(col => {
         let imgToDraw = coinSmallImg;
         if (col.type === 'medium') imgToDraw = coinMedImg;
@@ -255,13 +255,11 @@ export default function GameScreen({ onGameOver, activePlane = 'a320neo' }) {
         }
       });
 
-      // Perks
       perks.forEach(perk => {
-        const pulse = Math.sin(frameCount * 0.1) * 3;
+        const pulse = Math.sin(elapsedTimeMs / 150) * 3;
         const r = perk.radius + pulse;
 
         if (perk.type === 'shield') {
-          // Green glowing shield icon (optimized)
           ctx.save();
           ctx.fillStyle = 'rgba(0, 255, 136, 0.4)';
           ctx.beginPath();
@@ -272,14 +270,12 @@ export default function GameScreen({ onGameOver, activePlane = 'a320neo' }) {
           ctx.arc(perk.x, perk.y, r, 0, Math.PI * 2);
           ctx.fill();
           ctx.restore();
-          // Shield symbol
           ctx.fillStyle = '#fff';
           ctx.font = `bold ${Math.floor(r)}px Nunito`;
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
           ctx.fillText('🛡', perk.x, perk.y);
         } else if (perk.type === 'speed') {
-          // Orange/gold speed boost icon (optimized)
           ctx.save();
           ctx.fillStyle = 'rgba(255, 215, 0, 0.4)';
           ctx.beginPath();
@@ -300,75 +296,74 @@ export default function GameScreen({ onGameOver, activePlane = 'a320neo' }) {
     };
 
     const drawTurbulenceOverlay = () => {
-      if (turbulenceTimer <= 0) return;
-      // Red-tinted warning overlay
-      const intensity = (turbulenceTimer / TURBULENCE_DURATION) * 0.15;
+      if (turbulenceTimeMs <= 0) return;
+      const intensity = (turbulenceTimeMs / TURBULENCE_DURATION_MS) * 0.15;
       ctx.fillStyle = `rgba(255, 50, 50, ${intensity})`;
       ctx.fillRect(0, 0, width, height);
 
-      // Warning text
       ctx.save();
-      ctx.fillStyle = `rgba(255, 255, 255, ${0.5 + Math.sin(frameCount * 0.3) * 0.3})`;
+      ctx.fillStyle = `rgba(255, 255, 255, ${0.5 + Math.sin(elapsedTimeMs / 100) * 0.3})`;
       ctx.font = 'bold 24px Nunito';
       ctx.textAlign = 'center';
       ctx.fillText('⚠ TURBULENCE ⚠', width / 2, 80);
       ctx.restore();
     };
 
-    // === GAME LOGIC ===
-    const updatePlayState = () => {
-      // === TURBULENCE CHECK ===
+    // === GAME LOGIC (DT BASED) ===
+    const updatePlayState = (dt) => {
       const currentMilestone = Math.floor(currentScore / 10000);
       if (currentMilestone > lastTurbulenceMilestone && currentMilestone > 0) {
-        // Trigger turbulence at each 10k milestone with 70% chance
         if (Math.random() < 0.7) {
-          turbulenceTimer = TURBULENCE_DURATION;
+          turbulenceTimeMs = TURBULENCE_DURATION_MS;
           setHudTurbulence(true);
-          // Random lane shift
           const shiftDir = Math.random() > 0.5 ? 1 : -1;
-          const shiftAmount = 1 + Math.floor(Math.random() * 2); // 1-2 lanes
+          const shiftAmount = 1 + Math.floor(Math.random() * 2);
           player.lane = Math.max(0, Math.min(NUM_LANES - 1, player.lane + (shiftDir * shiftAmount)));
         }
         lastTurbulenceMilestone = currentMilestone;
       }
 
-      // === TURBULENCE UPDATE ===
-      if (turbulenceTimer > 0) {
-        turbulenceTimer--;
-        // Screen shake
+      if (turbulenceTimeMs > 0) {
+        turbulenceTimeMs -= dt;
         turbulenceShakeX = (Math.random() - 0.5) * 8;
         turbulenceShakeY = (Math.random() - 0.5) * 6;
-        // Random small lane drift during turbulence
-        if (frameCount % 12 === 0) {
+        
+        // Random drift (~every 200ms)
+        if (Math.random() < (dt / 200)) {
           const drift = Math.random() > 0.5 ? 1 : -1;
           player.lane = Math.max(0, Math.min(NUM_LANES - 1, player.lane + drift));
         }
-        if (turbulenceTimer <= 0) {
+        if (turbulenceTimeMs <= 0) {
           turbulenceShakeX = 0;
           turbulenceShakeY = 0;
           setHudTurbulence(false);
         }
       }
 
-      // === SPEED BOOST UPDATE ===
-      if (speedBoostTimer > 0) {
-        speedBoostTimer--;
-        if (speedBoostTimer <= 0) {
+      if (speedBoostTimeMs > 0) {
+        speedBoostTimeMs -= dt;
+        if (speedBoostTimeMs <= 0) {
           setHudSpeedBoost(false);
         }
       }
 
-      // Update Player position towards target lane X smoothly
+      // Smooth player interpolation (dt dependent)
       const targetX = getLaneX(player.lane);
       const dx = targetX - player.x;
-      player.x += dx * 0.2;
+      // Interpolate with dt. At 60fps, dt ~16ms. (1 - exp(-k*dt)) gives framerate independent lerp
+      player.x += dx * (1 - Math.exp(-0.015 * dt)); 
       
-      const effectiveSpeed = speedBoostTimer > 0 ? gameSpeed * 2.5 : gameSpeed;
-      const spawnFreqScale = Math.max(15, 50 - ((gameSpeed - 5) * 2));
+      const effectiveSpeedPPS = speedBoostTimeMs > 0 ? gameSpeedPPS * 2.5 : gameSpeedPPS;
+      
+      // Calculate spawn interval in ms based on game speed (faster game = spawn sooner)
+      // At speed 240, interval = ~800ms. At speed 600, interval = ~350ms
+      const spawnIntervalMs = Math.max(300, 1000 - ((gameSpeedPPS - 240) * 1.5));
+      timeSinceLastSpawn += dt;
 
-      // Spawn Logic
-      if (frameCount % Math.floor(spawnFreqScale) === 0) { 
-        // Spawn Obstacle
+      // Spawning
+      if (timeSinceLastSpawn > spawnIntervalMs) {
+        timeSinceLastSpawn = 0;
+        
         if (Math.random() > 0.4) {
           const spawnLane = Math.floor(Math.random() * NUM_LANES);
           const isEnemyPlane = currentScore > 2000 && Math.random() > 0.6; 
@@ -379,11 +374,10 @@ export default function GameScreen({ onGameOver, activePlane = 'a320neo' }) {
             radius: isEnemyPlane ? 30 : 25,
             type: isEnemyPlane ? 'enemy' : 'storm',
             isSmart: !isEnemyPlane && Math.random() > 0.7,
-            localSpeedMod: isEnemyPlane ? 2 : 0
+            localSpeedModPPS: isEnemyPlane ? 120 : 0
           });
         }
         
-        // Spawn Collectible
         if (Math.random() > 0.3) {
           const spawnLane = Math.floor(Math.random() * NUM_LANES);
           let type = 'small';
@@ -406,14 +400,10 @@ export default function GameScreen({ onGameOver, activePlane = 'a320neo' }) {
           });
         }
 
-        // Spawn Perks (rare)
-        if (Math.random() > 0.97) { // ~3% chance per spawn cycle
+        if (Math.random() > 0.97) {
           const spawnLane = Math.floor(Math.random() * NUM_LANES);
           const perkType = Math.random() > 0.5 ? 'shield' : 'speed';
-          // Don't spawn shield if player already has one
-          if (perkType === 'shield' && hasShield) {
-            // Skip
-          } else {
+          if (!(perkType === 'shield' && hasShield)) {
             perks.push({
               x: getLaneX(spawnLane),
               y: -50,
@@ -424,34 +414,35 @@ export default function GameScreen({ onGameOver, activePlane = 'a320neo' }) {
         }
       }
 
-      // Move entities and check collisions
+      // Entities movement (dt dependent)
       for (let i = obstacles.length - 1; i >= 0; i--) {
         const obs = obstacles[i];
         
-        const currentEntitySpeed = effectiveSpeed + (obs.localSpeedMod || 0);
-        obs.y += currentEntitySpeed;
+        const currentEntitySpeedPPS = effectiveSpeedPPS + (obs.localSpeedModPPS || 0);
+        const moveDist = currentEntitySpeedPPS * (dt / 1000);
+        obs.y += moveDist;
         
+        // Smart obstacle movement
         if (obs.isSmart && obs.y > 0 && obs.y < player.y - 100) {
-            if (obs.x < player.x - 5) obs.x += 1 + (gameSpeed * 0.1);
-            if (obs.x > player.x + 5) obs.x -= 1 + (gameSpeed * 0.1);
+            const seekingSpeedPPS = 60 + (gameSpeedPPS * 0.1);
+            const seekMove = seekingSpeedPPS * (dt / 1000);
+            if (obs.x < player.x - 5) obs.x += seekMove;
+            if (obs.x > player.x + 5) obs.x -= seekMove;
         }
         
         const dist = Math.hypot(player.x - obs.x, player.y - obs.y);
         if (dist < obs.radius + player.width/2 - 10) {
-          // During speed boost, player is invincible — destroy obstacle
-          if (speedBoostTimer > 0) {
+          if (speedBoostTimeMs > 0) {
             obstacles.splice(i, 1);
-            currentScore += 200; // Bonus for destroying obstacle
+            currentScore += 200;
             continue;
           }
-          // Shield absorbs one hit
           if (hasShield) {
             hasShield = false;
             setHudShield(false);
             obstacles.splice(i, 1);
             continue;
           }
-          // Collision — game over
           isGameRunning = false;
           setTimeout(() => onGameOver(Math.floor(currentScore)), 500);
         }
@@ -459,10 +450,9 @@ export default function GameScreen({ onGameOver, activePlane = 'a320neo' }) {
         if (obs.y > height + 50) obstacles.splice(i, 1);
       }
 
-      // Collectibles
       for (let i = collectibles.length - 1; i >= 0; i--) {
         const col = collectibles[i];
-        col.y += effectiveSpeed;
+        col.y += effectiveSpeedPPS * (dt / 1000);
 
         const dist = Math.hypot(player.x - col.x, player.y - col.y);
         if (dist < col.radius + player.width/2) {
@@ -473,10 +463,9 @@ export default function GameScreen({ onGameOver, activePlane = 'a320neo' }) {
         }
       }
 
-      // Perk collection
       for (let i = perks.length - 1; i >= 0; i--) {
         const perk = perks[i];
-        perk.y += effectiveSpeed;
+        perk.y += effectiveSpeedPPS * (dt / 1000);
 
         const dist = Math.hypot(player.x - perk.x, player.y - perk.y);
         if (dist < perk.radius + player.width/2) {
@@ -484,7 +473,7 @@ export default function GameScreen({ onGameOver, activePlane = 'a320neo' }) {
             hasShield = true;
             setHudShield(true);
           } else if (perk.type === 'speed') {
-            speedBoostTimer = SPEED_BOOST_DURATION;
+            speedBoostTimeMs = SPEED_BOOST_DURATION_MS;
             setHudSpeedBoost(true);
           }
           perks.splice(i, 1);
@@ -493,45 +482,50 @@ export default function GameScreen({ onGameOver, activePlane = 'a320neo' }) {
         }
       }
 
-      // Base score increase
-      const scoreMultiplier = speedBoostTimer > 0 ? 3 : (multiplierTimer > 0 ? 2 : 1);
-      currentScore += 0.5 * scoreMultiplier;
+      // Base score increase (per second instead of per frame)
+      // 0.5 per frame @ 60fps = 30 per second. 
+      const scoreMultiplier = speedBoostTimeMs > 0 ? 3 : (multiplierTimer > 0 ? 2 : 1);
+      currentScore += 30 * scoreMultiplier * (dt / 1000);
       
-      if (frameCount % 10 === 0) {
+      // Update UI score every ~100ms instead of pure framecount to save React renders
+      if (Math.floor(elapsedTimeMs / 100) > Math.floor((elapsedTimeMs - dt) / 100)) {
         setScore(Math.floor(currentScore));
       }
 
-      // Speed scaling
-      if (frameCount % 1200 === 0 && gameSpeed < 18) {
-        gameSpeed += 0.5;
+      // Speed scaling: Increase by +30 PPS every 20 seconds (up to 1080)
+      if (gameSpeedPPS < 1080 && Math.floor(elapsedTimeMs / 20000) > Math.floor((elapsedTimeMs - dt) / 20000)) {
+        gameSpeedPPS += 30;
       }
     };
 
-    const gameLoop = () => {
+    const gameLoop = (time) => {
       if (!isGameRunning) return;
+      
+      // Calculate delta time in ms
+      const dt = Math.min(time - lastTime, 100); // cap parsing to avoid huge jumps on lag spikes
+      lastTime = time;
+      elapsedTimeMs += dt;
 
       setMultiplierTimer(prev => {
         if (prev === 1) setMultiplier(1);
-        return prev > 0 ? prev - 1 : 0;
+        return prev > 0 ? prev - 1 : 0; // The logic here uses 'prev' as a vague duration counter across React renders, should be refined but OK for now.
       });
 
-      updatePlayState();
+      updatePlayState(dt);
 
-      // Render with screen shake
       ctx.save();
-      if (turbulenceTimer > 0) {
+      if (turbulenceTimeMs > 0) {
         ctx.translate(turbulenceShakeX, turbulenceShakeY);
       }
 
       ctx.clearRect(-10, -10, width + 20, height + 20);
-      drawSkyBackground();
+      drawSkyBackground(dt);
       drawEntities();
       drawPlayer();
       drawTurbulenceOverlay();
 
       ctx.restore();
 
-      frameCount++;
       animationFrameId = requestAnimationFrame(gameLoop);
     };
 
