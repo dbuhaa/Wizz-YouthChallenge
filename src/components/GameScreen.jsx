@@ -39,8 +39,8 @@ export default function GameScreen({ onGameOver, activePlane = 'a320neo' }) {
     let isGameRunning = true;
     let currentScore = 0;
     
-    // Base Speed: Pixels per second instead of pixels per frame (4 * 60 = 240)
-    let gameSpeedPPS = 240; 
+    // Base Speed: Pixels per second instead of pixels per frame (6 * 60 = 360)
+    let gameSpeedPPS = 360; 
     let elapsedTimeMs = 0;
 
     // === PERK STATE ===
@@ -356,8 +356,8 @@ export default function GameScreen({ onGameOver, activePlane = 'a320neo' }) {
       const effectiveSpeedPPS = speedBoostTimeMs > 0 ? gameSpeedPPS * 2.5 : gameSpeedPPS;
       
       // Calculate spawn interval in ms based on game speed (faster game = spawn sooner)
-      // At speed 240, interval = ~800ms. At speed 600, interval = ~350ms
-      const spawnIntervalMs = Math.max(300, 1000 - ((gameSpeedPPS - 240) * 1.5));
+      // At speed 360, interval = ~800ms. At speed 700, interval = ~350ms
+      const spawnIntervalMs = Math.max(300, 800 - ((gameSpeedPPS - 360) * 1.5));
       timeSinceLastSpawn += dt;
 
       // Spawning
