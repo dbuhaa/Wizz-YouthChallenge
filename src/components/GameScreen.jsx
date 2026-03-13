@@ -1,10 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
 import './GameScreen.css';
 
-export default function GameScreen({ onGameOver, activePlane = 'a320neo' }) {
+export default function GameScreen({ onGameOver, onMenu, activePlane = 'a320neo', isMuted, toggleMute }) {
   const canvasRef = useRef(null);
   const scoreRef = useRef(null); // Ref for direct DOM mutation
   const [multiplier, setMultiplier] = useState(1);
+  const [isPaused, setIsPaused] = useState(false);
   let multiplierTimerMs = 0; // Local variable instead of React state
 
   const [hudShield, setHudShield] = useState(false);
@@ -130,35 +131,7 @@ export default function GameScreen({ onGameOver, activePlane = 'a320neo' }) {
     let timeSinceLastSpawn = 0;
 
     // === INPUT HANDLERS ===
-    const handleKeyDown = (e) => {
-      if (turbulenceTimeMs > 0) return;
-      if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') {
-        player.lane = Math.max(0, player.lane - 1);
-      } else if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') {
-        player.lane = Math.min(NUM_LANES - 1, player.lane + 1);
-      }
-    };
 
-    const handlePointerDown = (e) => {
-      if (turbulenceTimeMs > 0) return;
-      const rect = canvas.getBoundingClientRect();
-      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-      const x = clientX - rect.left;
-      player.lane = Math.floor(x / laneWidth);
-    };
-
-    const handlePointerMove = (e) => {
-      if (turbulenceTimeMs > 0) return;
-      if(!e.touches && e.buttons !== 1) return;
-      const rect = canvas.getBoundingClientRect();
-      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-      const x = clientX - rect.left;
-      player.lane = Math.floor(x / laneWidth);
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    canvas.addEventListener('pointerdown', handlePointerDown);
-    canvas.addEventListener('pointermove', handlePointerMove);
 
     // === DRAWING FUNCTIONS ===
 
@@ -364,6 +337,7 @@ export default function GameScreen({ onGameOver, activePlane = 'a320neo' }) {
 
     // === GAME LOGIC (DT BASED) ===
     const updatePlayState = (dt) => {
+      if (isPaused) return;
       const currentMilestone = Math.floor(currentScore / 10000);
       if (currentMilestone > lastTurbulenceMilestone && currentMilestone > 0) {
         if (Math.random() < 0.7) {
@@ -583,11 +557,19 @@ export default function GameScreen({ onGameOver, activePlane = 'a320neo' }) {
     };
 
     const gameLoop = (time) => {
-      if (!isGameRunning) return;
+      // Still request next frame even if paused, so we can re-render overlay effects but NOT logic
+      animationFrameId = requestAnimationFrame(gameLoop);
+      if (!isGameRunning) {
+        cancelAnimationFrame(animationFrameId);
+        return;
+      }
       
       // Calculate delta time in ms
       const dt = Math.min(time - lastTime, 100); 
       lastTime = time;
+
+      if (isPaused) return;
+
       elapsedTimeMs += dt;
 
       if (multiplierTimerMs > 0) {
@@ -609,11 +591,48 @@ export default function GameScreen({ onGameOver, activePlane = 'a320neo' }) {
       drawTurbulenceOverlay();
 
       ctx.restore();
-
-      animationFrameId = requestAnimationFrame(gameLoop);
     };
 
     animationFrameId = requestAnimationFrame(gameLoop);
+
+    // KEYBOARD HANDLERS with Pause support
+    const handleKeyDown = (e) => {
+      if (e.key === 'p' || e.key === 'P' || e.key === 'Escape') {
+        setIsPaused(prev => !prev);
+        return;
+      }
+
+      if (isPaused) return;
+      if (turbulenceTimeMs > 0) return;
+      if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') {
+        player.lane = Math.max(0, player.lane - 1);
+      } else if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') {
+        player.lane = Math.min(NUM_LANES - 1, player.lane + 1);
+      }
+    };
+
+    const handlePointerDown = (e) => {
+      if (isPaused) return;
+      if (turbulenceTimeMs > 0) return;
+      const rect = canvas.getBoundingClientRect();
+      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      const x = clientX - rect.left;
+      player.lane = Math.floor(x / laneWidth);
+    };
+
+    const handlePointerMove = (e) => {
+      if (isPaused) return;
+      if (turbulenceTimeMs > 0) return;
+      if(!e.touches && e.buttons !== 1) return;
+      const rect = canvas.getBoundingClientRect();
+      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      const x = clientX - rect.left;
+      player.lane = Math.floor(x / laneWidth);
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    canvas.addEventListener('pointerdown', handlePointerDown);
+    canvas.addEventListener('pointermove', handlePointerMove);
 
     return () => {
       cancelAnimationFrame(animationFrameId);
@@ -621,13 +640,18 @@ export default function GameScreen({ onGameOver, activePlane = 'a320neo' }) {
       canvas.removeEventListener('pointerdown', handlePointerDown);
       canvas.removeEventListener('pointermove', handlePointerMove);
     };
-  }, [onGameOver, activePlane]);
+  }, [onGameOver, activePlane, isPaused]);
 
   return (
     <div className="game-screen screen">
       <div className="game-hud">
-        <div className="game-score" ref={scoreRef}>
-          Score: 0
+        <div className="hud-left">
+          <button className="pause-toggle-button" onClick={() => setIsPaused(true)}>
+             ⏸
+          </button>
+          <div className="game-score" ref={scoreRef}>
+            Score: 0
+          </div>
         </div>
         <div className="hud-perks">
           {hudShield && (
@@ -650,6 +674,25 @@ export default function GameScreen({ onGameOver, activePlane = 'a320neo' }) {
         </div>
       </div>
       <canvas ref={canvasRef} className="game-canvas"></canvas>
+
+      {isPaused && (
+        <div className="pause-overlay">
+          <div className="pause-content">
+            <h2>PAUSED</h2>
+            <div className="pause-actions">
+              <button className="resume-button" onClick={() => setIsPaused(false)}>
+                RESUME FLIGHT
+              </button>
+              <button className="secondary-pause-button" onClick={toggleMute}>
+                {isMuted ? '🔊 UNMUTE' : '🔇 MUTE'}
+              </button>
+              <button className="secondary-pause-button" onClick={onMenu}>
+                QUIT TO MENU
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

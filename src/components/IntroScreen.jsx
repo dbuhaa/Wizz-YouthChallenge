@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import './IntroScreen.css';
 import { supabase } from '../supabaseClient';
 
-export default function IntroScreen({ userId, setUserId, onComplete, isSettings = false, onBack = null }) {
+export default function IntroScreen({ userId, setUserId, onComplete, isSettings = false, onBack = null, isMuted, toggleMute }) {
   const [username, setUsername] = useState(() => localStorage.getItem('wizzRouteRushUsername') || '');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -24,18 +24,16 @@ export default function IntroScreen({ userId, setUserId, onComplete, isSettings 
         }
 
         // 2. Fetch all candidates for convergence (ID, Username, OR IP)
+        // Aggressive matching: find ANY record that looks like this person
         let matches = [];
         let ipColumnExists = true;
 
         try {
-          // Attempt a robust search if IP column exists
           const query = supabase.from('leaderboard').select('*');
           
-          // Logic: 
-          // 1. Matches this specific ID (Always the same person)
-          // 2. Matches BOTH this Username AND this IP (Account recovery for the SAME person)
           if (currentIp && ipColumnExists) {
-            query.or(`id.eq.${userId},and(username.eq.${trimmedName},ip.eq.${currentIp})`);
+            // Match by ID, by Username, OR by IP (to catch device/person overlap)
+            query.or(`id.eq.${userId},username.eq.${trimmedName},ip.eq.${currentIp}`);
           } else {
             query.or(`id.eq.${userId},username.eq.${trimmedName}`);
           }
@@ -43,7 +41,6 @@ export default function IntroScreen({ userId, setUserId, onComplete, isSettings 
           const { data, error: queryError } = await query;
           
           if (queryError) {
-             // If error is specifically about the 'ip' column, fallback
              if (queryError.message.includes('column "ip" does not exist')) {
                 ipColumnExists = false;
                 const { data: fallbackData } = await supabase
@@ -59,7 +56,6 @@ export default function IntroScreen({ userId, setUserId, onComplete, isSettings 
           }
         } catch (searchErr) {
           console.warn("Search for matches failed, falling back to minimal sync:", searchErr);
-          // Last resort fallback
           const { data } = await supabase.from('leaderboard').select('*').eq('id', userId);
           matches = data || [];
         }
@@ -168,15 +164,27 @@ export default function IntroScreen({ userId, setUserId, onComplete, isSettings 
           </button>
           
           {isSettings && (
-            <button 
-              type="button" 
-              className="intro-button secondary"
-              style={{ backgroundColor: 'transparent', border: '2px solid white', marginTop: '10px' }}
-              onClick={onBack}
-              disabled={isSubmitting}
-            >
-              Cancel
-            </button>
+            <>
+              <button 
+                type="button" 
+                className="intro-button secondary"
+                style={{ backgroundColor: 'rgba(255,255,255,0.1)', border: '2px solid white', marginTop: '10px' }}
+                onClick={toggleMute}
+                disabled={isSubmitting}
+              >
+                {isMuted ? '🔇 Unmute Music' : '🔊 Mute Music'}
+              </button>
+
+              <button 
+                type="button" 
+                className="intro-button secondary"
+                style={{ backgroundColor: 'transparent', border: '2px solid white', marginTop: '10px' }}
+                onClick={onBack}
+                disabled={isSubmitting}
+              >
+                Cancel
+              </button>
+            </>
           )}
         </div>
       </form>

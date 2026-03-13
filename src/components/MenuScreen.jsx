@@ -1,17 +1,27 @@
 import { useState } from 'react';
 import './MenuScreen.css';
 
-export default function MenuScreen({ onStartGame, onShowLeaderboard, setCurrentScreen }) {
+export default function MenuScreen({ onStartGame, onShowLeaderboard, setCurrentScreen, isMuted, toggleMute }) {
   return (
     <div className="menu-screen screen">
       <div className="menu-header">
-        <button 
-          className="settings-icon-button" 
-          onClick={() => setCurrentScreen('settings')}
-          style={{ position: 'absolute', top: '20px', right: '20px', background: 'transparent', border: 'none', color: 'white', fontSize: '24px', cursor: 'pointer', zIndex: 100 }}
-        >
-          ⚙️
-        </button>
+        <div className="header-actions" style={{ position: 'absolute', top: '20px', right: '20px', display: 'flex', gap: '15px', zIndex: 100 }}>
+          <button 
+            className="mute-toggle-button" 
+            onClick={toggleMute}
+            style={{ background: 'transparent', border: 'none', color: 'white', fontSize: '24px', cursor: 'pointer' }}
+            title={isMuted ? "Unmute" : "Mute"}
+          >
+            {isMuted ? '🔇' : '🔊'}
+          </button>
+          <button 
+            className="settings-icon-button" 
+            onClick={() => setCurrentScreen('settings')}
+            style={{ background: 'transparent', border: 'none', color: 'white', fontSize: '24px', cursor: 'pointer' }}
+          >
+            ⚙️
+          </button>
+        </div>
         <div className="wizz-logo-container">
            <img src={`${import.meta.env.BASE_URL}wizz_logo.svg`} alt="Wizz Air Logo" className="wizz-official-logo" />
         </div>
