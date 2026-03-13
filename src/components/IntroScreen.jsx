@@ -30,11 +30,16 @@ export default function IntroScreen({ userId, setUserId, onComplete, isSettings 
         try {
           // Attempt a robust search if IP column exists
           const query = supabase.from('leaderboard').select('*');
-          if (currentIp) {
-            query.or(`ip.eq.${currentIp},username.eq.${trimmedName},id.eq.${userId}`);
+          
+          // Logic: 
+          // 1. Matches this specific ID (Always the same person)
+          // 2. Matches BOTH this Username AND this IP (Account recovery for the SAME person)
+          if (currentIp && ipColumnExists) {
+            query.or(`id.eq.${userId},and(username.eq.${trimmedName},ip.eq.${currentIp})`);
           } else {
-            query.or(`username.eq.${trimmedName},id.eq.${userId}`);
+            query.or(`id.eq.${userId},username.eq.${trimmedName}`);
           }
+          
           const { data, error: queryError } = await query;
           
           if (queryError) {
@@ -44,7 +49,7 @@ export default function IntroScreen({ userId, setUserId, onComplete, isSettings 
                 const { data: fallbackData } = await supabase
                   .from('leaderboard')
                   .select('*')
-                  .or(`username.eq.${trimmedName},id.eq.${userId}`);
+                  .or(`id.eq.${userId},username.eq.${trimmedName}`);
                 matches = fallbackData || [];
              } else {
                 throw queryError;
