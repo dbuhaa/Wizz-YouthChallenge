@@ -73,12 +73,11 @@ function App() {
     setLastScore(score);
     setCurrentScreen('gameover');
 
-    const username = localStorage.getItem('wizzRouteRushUsername');
-
-    if (username && userId) {
+    if (userId) {
       try {
-        // Upsert by ID to ensure name changes don't create duplicate entries
-        // and that history is preserved.
+        // Only update score — NEVER overwrite username here.
+        // Username is managed exclusively through IntroScreen/Settings.
+        // This prevents two people on the same device from overwriting each other's names.
         const { data, error: fetchError } = await supabase
           .from('leaderboard')
           .select('score')
@@ -86,22 +85,19 @@ function App() {
           .maybeSingle();
 
         if (data) {
-          // Update only if higher score
+          // Update only if this run beat the high score
           if (score > data.score) {
             await supabase
               .from('leaderboard')
-              .update({ score, username }) // Also update name in case it changed
-              .eq('id', userId);
-          } else {
-            // Even if score isn't higher, still update the name to reflect any changes
-            await supabase
-              .from('leaderboard')
-              .update({ username })
+              .update({ score })
               .eq('id', userId);
           }
         } else {
-          // New user entry with our pre-generated ID
-          await supabase.from('leaderboard').insert([{ id: userId, username, score }]);
+          // Brand new user — insert with current username
+          const username = localStorage.getItem('wizzRouteRushUsername');
+          if (username) {
+            await supabase.from('leaderboard').insert([{ id: userId, username, score }]);
+          }
         }
       } catch (err) {
         console.error("Failed to sync score to Supabase", err);
