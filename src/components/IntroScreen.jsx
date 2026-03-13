@@ -8,32 +8,65 @@ export default function IntroScreen({ userId, onComplete, isSettings = false, on
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+  const [username, setUsername] = useState(() => localStorage.getItem('wizzRouteRushUsername') || '');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
     const trimmedName = username.trim();
     if (trimmedName.length > 0) {
       setIsSubmitting(true);
       
       try {
-        // First, check if this username already exists in the database
-        // to prevent creating a new user (duplicates) if they are just returning 
-        // to the same username on a new device/session.
-        const { data: existingUser } = await supabase
+        // Fetch current IP to enforce "one user per IP" requirement
+        let currentIp = '';
+        try {
+          const ipRes = await fetch('https://api.ipify.org?format=json');
+          const ipData = await ipRes.json();
+          currentIp = ipData.ip;
+        } catch (ipErr) {
+          console.error("Failed to fetch IP:", ipErr);
+        }
+
+        // 1. Check if this username already exists
+        const { data: nameMatch } = await supabase
           .from('leaderboard')
           .select('id')
           .eq('username', trimmedName)
           .maybeSingle();
 
+        // 2. ALSO check if this IP already has a registered user
+        let ipMatch = null;
+        if (currentIp) {
+          const { data } = await supabase
+            .from('leaderboard')
+            .select('id')
+            .eq('ip', currentIp)
+            .maybeSingle();
+          ipMatch = data;
+        }
+
         let finalUserId = userId;
 
-        if (existingUser && existingUser.id !== userId) {
-           // Adopt the identity of the existing user with this name
-           finalUserId = existingUser.id;
+        // Adoption logic: prioritze IP match then Name match
+        if (ipMatch && ipMatch.id !== userId) {
+           finalUserId = ipMatch.id;
+        } else if (nameMatch && nameMatch.id !== userId) {
+           finalUserId = nameMatch.id;
+        }
+
+        if (finalUserId !== userId) {
            localStorage.setItem('wizzRouteRushUserId', finalUserId);
         }
 
         // Sync to Supabase using the persistent ID
         const { error } = await supabase
           .from('leaderboard')
-          .upsert({ id: finalUserId, username: trimmedName }, { onConflict: 'id' });
+          .upsert({ 
+            id: finalUserId, 
+            username: trimmedName,
+            ip: currentIp // Store IP for future lookups
+          }, { onConflict: 'id' });
 
         if (error) {
           console.error("Failed to sync username:", error);
