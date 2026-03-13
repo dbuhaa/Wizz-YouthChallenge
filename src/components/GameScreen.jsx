@@ -6,6 +6,14 @@ export default function GameScreen({ onGameOver, onMenu, activePlane = 'a320neo'
   const scoreRef = useRef(null); // Ref for direct DOM mutation
   const [multiplier, setMultiplier] = useState(1);
   const [isPaused, setIsPaused] = useState(false);
+  const isPausedRef = useRef(false);
+
+  const togglePause = (val) => {
+    const next = typeof val === 'boolean' ? val : !isPaused;
+    setIsPaused(next);
+    isPausedRef.current = next;
+  };
+
   let multiplierTimerMs = 0; // Local variable instead of React state
 
   const [hudShield, setHudShield] = useState(false);
@@ -337,7 +345,7 @@ export default function GameScreen({ onGameOver, onMenu, activePlane = 'a320neo'
 
     // === GAME LOGIC (DT BASED) ===
     const updatePlayState = (dt) => {
-      if (isPaused) return;
+      if (isPausedRef.current) return;
       const currentMilestone = Math.floor(currentScore / 10000);
       if (currentMilestone > lastTurbulenceMilestone && currentMilestone > 0) {
         if (Math.random() < 0.7) {
@@ -568,7 +576,7 @@ export default function GameScreen({ onGameOver, onMenu, activePlane = 'a320neo'
       const dt = Math.min(time - lastTime, 100); 
       lastTime = time;
 
-      if (isPaused) return;
+      if (isPausedRef.current) return;
 
       elapsedTimeMs += dt;
 
@@ -598,11 +606,11 @@ export default function GameScreen({ onGameOver, onMenu, activePlane = 'a320neo'
     // KEYBOARD HANDLERS with Pause support
     const handleKeyDown = (e) => {
       if (e.key === 'p' || e.key === 'P' || e.key === 'Escape') {
-        setIsPaused(prev => !prev);
+        togglePause();
         return;
       }
 
-      if (isPaused) return;
+      if (isPausedRef.current) return;
       if (turbulenceTimeMs > 0) return;
       if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') {
         player.lane = Math.max(0, player.lane - 1);
@@ -612,7 +620,7 @@ export default function GameScreen({ onGameOver, onMenu, activePlane = 'a320neo'
     };
 
     const handlePointerDown = (e) => {
-      if (isPaused) return;
+      if (isPausedRef.current) return;
       if (turbulenceTimeMs > 0) return;
       const rect = canvas.getBoundingClientRect();
       const clientX = e.touches ? e.touches[0].clientX : e.clientX;
@@ -621,7 +629,7 @@ export default function GameScreen({ onGameOver, onMenu, activePlane = 'a320neo'
     };
 
     const handlePointerMove = (e) => {
-      if (isPaused) return;
+      if (isPausedRef.current) return;
       if (turbulenceTimeMs > 0) return;
       if(!e.touches && e.buttons !== 1) return;
       const rect = canvas.getBoundingClientRect();
@@ -640,13 +648,13 @@ export default function GameScreen({ onGameOver, onMenu, activePlane = 'a320neo'
       canvas.removeEventListener('pointerdown', handlePointerDown);
       canvas.removeEventListener('pointermove', handlePointerMove);
     };
-  }, [onGameOver, activePlane, isPaused]);
+  }, [onGameOver, activePlane]);
 
   return (
     <div className="game-screen screen">
       <div className="game-hud">
         <div className="hud-left">
-          <button className="pause-toggle-button" onClick={() => setIsPaused(true)}>
+          <button className="pause-toggle-button" onClick={() => togglePause(true)}>
              ⏸
           </button>
           <div className="game-score" ref={scoreRef}>
@@ -680,7 +688,7 @@ export default function GameScreen({ onGameOver, onMenu, activePlane = 'a320neo'
           <div className="pause-content">
             <h2>PAUSED</h2>
             <div className="pause-actions">
-              <button className="resume-button" onClick={() => setIsPaused(false)}>
+              <button className="resume-button" onClick={() => togglePause(false)}>
                 RESUME FLIGHT
               </button>
               <button className="secondary-pause-button" onClick={toggleMute}>

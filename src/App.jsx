@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import './App.css'
 import MenuScreen from './components/MenuScreen'
 import LeaderboardScreen from './components/LeaderboardScreen'
