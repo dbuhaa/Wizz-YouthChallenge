@@ -13,7 +13,7 @@ export default function IntroScreen({ userId, setUserId, onComplete, isSettings 
       setIsSubmitting(true);
       
       try {
-        // 1. Fetch current IP (optional, for recovery)
+        // 1. Fetch current IP (optional, for same-device detection)
         let currentIp = '';
         try {
           const ipRes = await fetch('https://api.ipify.org?format=json');
@@ -23,79 +23,89 @@ export default function IntroScreen({ userId, setUserId, onComplete, isSettings 
           console.error("Failed to fetch IP:", ipErr);
         }
 
-        // 2. Fetch all candidates for convergence (ID, Username, OR IP)
-        // Aggressive matching: find ANY record that looks like this person
-        let matches = [];
         let ipColumnExists = true;
 
-        try {
-          const query = supabase.from('leaderboard').select('*');
+        // 2. Check if the desired username is already taken by a DIFFERENT user
+        //    This prevents score theft — you can't claim someone else's name.
+        {
+          const { data: nameOwners, error: nameErr } = await supabase
+            .from('leaderboard')
+            .select('id, username')
+            .eq('username', trimmedName);
           
-          if (currentIp && ipColumnExists) {
-            // Match by ID, by Username, OR by IP (to catch device/person overlap)
-            query.or(`id.eq.${userId},username.eq.${trimmedName},ip.eq.${currentIp}`);
-          } else {
-            query.or(`id.eq.${userId},username.eq.${trimmedName}`);
+          if (!nameErr && nameOwners && nameOwners.length > 0) {
+            const ownedBySomeoneElse = nameOwners.some(r => r.id !== userId);
+            if (ownedBySomeoneElse) {
+              alert('This username is already taken by another player. Please choose a different one.');
+              setIsSubmitting(false);
+              return;
+            }
           }
-          
-          const { data, error: queryError } = await query;
-          
-          if (queryError) {
-             if (queryError.message.includes('column "ip" does not exist')) {
-                ipColumnExists = false;
-                const { data: fallbackData } = await supabase
-                  .from('leaderboard')
-                  .select('*')
-                  .or(`id.eq.${userId},username.eq.${trimmedName}`);
-                matches = fallbackData || [];
-             } else {
-                throw queryError;
-             }
-          } else {
-            matches = data || [];
-          }
-        } catch (searchErr) {
-          console.warn("Search for matches failed, falling back to minimal sync:", searchErr);
-          const { data } = await supabase.from('leaderboard').select('*').eq('id', userId);
-          matches = data || [];
         }
 
-        // 3. Determine Final Identity and Max Score
+        // 3. Find records that belong to THIS person (by ID, or same IP = same device)
+        //    We NEVER match by username alone — that would merge different people.
+        let myRecords = [];
+        try {
+          let query = supabase.from('leaderboard').select('*');
+          if (currentIp) {
+            query = query.or(`id.eq.${userId},ip.eq.${currentIp}`);
+          } else {
+            query = query.eq('id', userId);
+          }
+          const { data, error: queryError } = await query;
+
+          if (queryError) {
+            if (queryError.message.includes('column "ip" does not exist')) {
+              ipColumnExists = false;
+              const { data: fallbackData } = await supabase
+                .from('leaderboard')
+                .select('*')
+                .eq('id', userId);
+              myRecords = fallbackData || [];
+            } else {
+              throw queryError;
+            }
+          } else {
+            myRecords = data || [];
+          }
+        } catch (searchErr) {
+          console.warn("Search failed, falling back to ID-only:", searchErr);
+          const { data } = await supabase.from('leaderboard').select('*').eq('id', userId);
+          myRecords = data || [];
+        }
+
+        // 4. Converge same-person records: keep the one with the highest score
         let finalUserId = userId;
         let finalScore = 0;
 
-        if (matches.length > 0) {
-          // Maximize score across all convergent matches
-          finalScore = Math.max(...matches.map(m => m.score || 0));
-          
-          // Identity Preservation:
-          // Check if WE (current userId) already have a record in the DB
-          const currentRecord = matches.find(m => m.id === userId);
-          
+        if (myRecords.length > 0) {
+          finalScore = Math.max(...myRecords.map(m => m.score || 0));
+
+          const currentRecord = myRecords.find(m => m.id === userId);
           if (currentRecord) {
-            // If we exist, we ARE the survivor. We keep our ID.
             finalUserId = userId;
           } else {
-            // If we are new/anonymous, adopt the record with the highest score
-            const bestRecord = matches.reduce((prev, curr) => (prev.score > curr.score) ? prev : curr);
+            // Adopt the best existing record from same device
+            const bestRecord = myRecords.reduce((prev, curr) => (prev.score > curr.score) ? prev : curr);
             finalUserId = bestRecord.id;
           }
 
-          // 4. Converge: Delete all OTHER records found in the match
-          const idsToDelete = matches.map(m => m.id).filter(id => id !== finalUserId);
+          // Delete duplicate same-person records
+          const idsToDelete = myRecords.map(m => m.id).filter(id => id !== finalUserId);
           if (idsToDelete.length > 0) {
-            console.log("Converging accounts, removing duplicates:", idsToDelete);
+            console.log("Converging same-person accounts:", idsToDelete);
             await supabase.from('leaderboard').delete().in('id', idsToDelete);
           }
         }
 
-        // 5. Adoption: Sync local and global state
+        // 5. Sync local identity if adopted
         if (finalUserId !== userId) {
           localStorage.setItem('wizzRouteRushUserId', finalUserId);
           if (setUserId) setUserId(finalUserId);
         }
 
-        // 6. Upsert final survivor record (Updates username for the survivor ID)
+        // 6. Upsert the survivor record with the new username
         const updateData = { 
           id: finalUserId, 
           username: trimmedName,
@@ -108,13 +118,11 @@ export default function IntroScreen({ userId, setUserId, onComplete, isSettings 
           .upsert(updateData, { onConflict: 'id' });
 
         if (upsertError) {
-          // If we mis-detected the 'ip' column, try one last time without it
           if (upsertError.message.includes('column "ip" does not exist')) {
             delete updateData.ip;
             const { error: retryError } = await supabase
               .from('leaderboard')
               .upsert(updateData, { onConflict: 'id' });
-            
             if (retryError) throw retryError;
           } else {
             throw upsertError;
@@ -126,7 +134,7 @@ export default function IntroScreen({ userId, setUserId, onComplete, isSettings 
         onComplete(trimmedName);
       } catch (err) {
         console.error("Internal sync error:", err);
-        alert(`Error saving settings: ${err.message || 'unknown error'}.\n\nIf you see 'column ip does not exist', please ask the developer to run the database migration.`);
+        alert(`Error saving settings: ${err.message || 'unknown error'}.`);
         setIsSubmitting(false);
       }
     }

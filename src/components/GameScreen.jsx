@@ -625,7 +625,7 @@ export default function GameScreen({ onGameOver, onMenu, activePlane = 'a320neo'
       const rect = canvas.getBoundingClientRect();
       const clientX = e.touches ? e.touches[0].clientX : e.clientX;
       const x = clientX - rect.left;
-      player.lane = Math.floor(x / laneWidth);
+      player.lane = Math.max(0, Math.min(NUM_LANES - 1, Math.floor(x / laneWidth)));
     };
 
     const handlePointerMove = (e) => {
@@ -635,7 +635,7 @@ export default function GameScreen({ onGameOver, onMenu, activePlane = 'a320neo'
       const rect = canvas.getBoundingClientRect();
       const clientX = e.touches ? e.touches[0].clientX : e.clientX;
       const x = clientX - rect.left;
-      player.lane = Math.floor(x / laneWidth);
+      player.lane = Math.max(0, Math.min(NUM_LANES - 1, Math.floor(x / laneWidth)));
     };
 
     window.addEventListener('keydown', handleKeyDown);
