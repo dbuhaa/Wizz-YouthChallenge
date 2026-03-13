@@ -309,6 +309,22 @@ export default function GameScreen({ onGameOver, activePlane = 'a320neo' }) {
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
           ctx.fillText('⚡', perk.x, perk.y);
+        } else if (perk.type === 'multiplier') {
+          ctx.save();
+          ctx.fillStyle = 'rgba(255, 0, 255, 0.4)';
+          ctx.beginPath();
+          ctx.arc(perk.x, perk.y, r + 6, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = '#ff00ff';
+          ctx.beginPath();
+          ctx.arc(perk.x, perk.y, r, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+          ctx.fillStyle = '#fff';
+          ctx.font = `bold ${Math.floor(r)}px Nunito`;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText('2X', perk.x, perk.y);
         }
       });
     };
@@ -420,8 +436,12 @@ export default function GameScreen({ onGameOver, activePlane = 'a320neo' }) {
 
         if (Math.random() > 0.97) {
           const spawnLane = Math.floor(Math.random() * NUM_LANES);
-          const perkType = Math.random() > 0.5 ? 'shield' : 'speed';
-          if (!(perkType === 'shield' && hasShield)) {
+          const roll = Math.random();
+          let perkType = 'shield';
+          if (roll > 0.66) perkType = 'speed';
+          else if (roll > 0.33) perkType = 'multiplier';
+          
+          if (!(perkType === 'shield' && hasShield) && !(perkType === 'multiplier' && multiplierTimerMs > 0)) {
             perks.push({
               x: getLaneX(spawnLane),
               y: -50,
@@ -497,6 +517,9 @@ export default function GameScreen({ onGameOver, activePlane = 'a320neo' }) {
           } else if (perk.type === 'speed') {
             speedBoostTimeMs = SPEED_BOOST_DURATION_MS;
             setHudSpeedBoost(true);
+          } else if (perk.type === 'multiplier') {
+            multiplierTimerMs = 10000; // 10 seconds
+            setMultiplier(2);
           }
           perks.splice(i, 1);
         } else if (perk.y > height + 50) {

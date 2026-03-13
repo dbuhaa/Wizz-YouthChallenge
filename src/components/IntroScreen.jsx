@@ -13,10 +13,27 @@ export default function IntroScreen({ userId, onComplete, isSettings = false, on
       setIsSubmitting(true);
       
       try {
+        // First, check if this username already exists in the database
+        // to prevent creating a new user (duplicates) if they are just returning 
+        // to the same username on a new device/session.
+        const { data: existingUser } = await supabase
+          .from('leaderboard')
+          .select('id')
+          .eq('username', trimmedName)
+          .maybeSingle();
+
+        let finalUserId = userId;
+
+        if (existingUser && existingUser.id !== userId) {
+           // Adopt the identity of the existing user with this name
+           finalUserId = existingUser.id;
+           localStorage.setItem('wizzRouteRushUserId', finalUserId);
+        }
+
         // Sync to Supabase using the persistent ID
         const { error } = await supabase
           .from('leaderboard')
-          .upsert({ id: userId, username: trimmedName }, { onConflict: 'id' });
+          .upsert({ id: finalUserId, username: trimmedName }, { onConflict: 'id' });
 
         if (error) {
           console.error("Failed to sync username:", error);
