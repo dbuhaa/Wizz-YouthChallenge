@@ -5,6 +5,7 @@ import { supabase } from '../supabaseClient';
 
 export default function GameOverScreen({ score, onRestart, onMenu, onShowLeaderboard }) {
   const [playerRank, setPlayerRank] = useState(null);
+  const [totalPlayers, setTotalPlayers] = useState(0);
   const [isLoadingRank, setIsLoadingRank] = useState(true);
 
   useEffect(() => {
