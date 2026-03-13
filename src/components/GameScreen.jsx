@@ -3,9 +3,10 @@ import './GameScreen.css';
 
 export default function GameScreen({ onGameOver, activePlane = 'a320neo' }) {
   const canvasRef = useRef(null);
-  const [score, setScore] = useState(0);
+  const scoreRef = useRef(null); // Ref for direct DOM mutation
   const [multiplier, setMultiplier] = useState(1);
-  const [multiplierTimer, setMultiplierTimer] = useState(0);
+  let multiplierTimerMs = 0; // Local variable instead of React state
+
   const [hudShield, setHudShield] = useState(false);
   const [hudSpeedBoost, setHudSpeedBoost] = useState(false);
   const [hudTurbulence, setHudTurbulence] = useState(false);
@@ -18,8 +19,9 @@ export default function GameScreen({ onGameOver, activePlane = 'a320neo' }) {
     const width = canvas.parentElement.clientWidth;
     const height = canvas.parentElement.clientHeight;
     
-    // Scale for high-DPI (Retina) displays to fix pixelation
-    const dpr = window.devicePixelRatio || 1;
+    // Scale for high-DPI displays, but CAP at 1.5 to save massive mobile GPU power
+    // Many modern phones are 3x or 4x, rendering a 4K canvas silently and killing FPS
+    const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
     canvas.width = width * dpr;
     canvas.height = height * dpr;
     
@@ -456,7 +458,7 @@ export default function GameScreen({ onGameOver, activePlane = 'a320neo' }) {
 
         const dist = Math.hypot(player.x - col.x, player.y - col.y);
         if (dist < col.radius + player.width/2) {
-          currentScore += col.scoreVal * (multiplierTimer > 0 ? 2 : 1);
+          currentScore += col.scoreVal * (multiplierTimerMs > 0 ? 2 : 1);
           collectibles.splice(i, 1);
         } else if (col.y > height + 50) {
           collectibles.splice(i, 1);
@@ -483,13 +485,12 @@ export default function GameScreen({ onGameOver, activePlane = 'a320neo' }) {
       }
 
       // Base score increase (per second instead of per frame)
-      // 0.5 per frame @ 60fps = 30 per second. 
-      const scoreMultiplier = speedBoostTimeMs > 0 ? 3 : (multiplierTimer > 0 ? 2 : 1);
+      const scoreMultiplier = speedBoostTimeMs > 0 ? 3 : (multiplierTimerMs > 0 ? 2 : 1);
       currentScore += 30 * scoreMultiplier * (dt / 1000);
       
-      // Update UI score every ~100ms instead of pure framecount to save React renders
-      if (Math.floor(elapsedTimeMs / 100) > Math.floor((elapsedTimeMs - dt) / 100)) {
-        setScore(Math.floor(currentScore));
+      // Direct DOM mutation for score to avoid React re-renders hitting the GPU
+      if (scoreRef.current && Math.floor(elapsedTimeMs / 100) > Math.floor((elapsedTimeMs - dt) / 100)) {
+        scoreRef.current.innerText = `Score: ${Math.floor(currentScore).toLocaleString()}`;
       }
 
       // Speed scaling: Increase by +50 PPS every 15 seconds (up to 1500)
@@ -502,14 +503,14 @@ export default function GameScreen({ onGameOver, activePlane = 'a320neo' }) {
       if (!isGameRunning) return;
       
       // Calculate delta time in ms
-      const dt = Math.min(time - lastTime, 100); // cap parsing to avoid huge jumps on lag spikes
+      const dt = Math.min(time - lastTime, 100); 
       lastTime = time;
       elapsedTimeMs += dt;
 
-      setMultiplierTimer(prev => {
-        if (prev === 1) setMultiplier(1);
-        return prev > 0 ? prev - 1 : 0; // The logic here uses 'prev' as a vague duration counter across React renders, should be refined but OK for now.
-      });
+      if (multiplierTimerMs > 0) {
+        multiplierTimerMs -= dt;
+        if (multiplierTimerMs <= 0) setMultiplier(1);
+      }
 
       updatePlayState(dt);
 
@@ -542,8 +543,8 @@ export default function GameScreen({ onGameOver, activePlane = 'a320neo' }) {
   return (
     <div className="game-screen screen">
       <div className="game-hud">
-        <div className="game-score">
-          Score: {score.toLocaleString()}
+        <div className="game-score" ref={scoreRef}>
+          Score: 0
         </div>
         <div className="hud-perks">
           {hudShield && (
