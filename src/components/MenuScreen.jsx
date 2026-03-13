@@ -5,6 +5,13 @@ export default function MenuScreen({ onStartGame, onShowLeaderboard, setCurrentS
   return (
     <div className="menu-screen screen">
       <div className="menu-header">
+        <button 
+          className="settings-icon-button" 
+          onClick={() => setCurrentScreen('settings')}
+          style={{ position: 'absolute', top: '20px', right: '20px', background: 'transparent', border: 'none', color: 'white', fontSize: '24px', cursor: 'pointer', zIndex: 100 }}
+        >
+          ⚙️
+        </button>
         <div className="wizz-logo-container">
            <img src={`${import.meta.env.BASE_URL}wizz_logo.svg`} alt="Wizz Air Logo" className="wizz-official-logo" />
         </div>

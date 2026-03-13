@@ -56,9 +56,18 @@ function App() {
       {currentScreen === 'intro' && (
         <IntroScreen 
           onComplete={(username) => {
-            // Username is already saved to localStorage inside IntroScreen
             setCurrentScreen('menu');
           }}
+        />
+      )}
+
+      {currentScreen === 'settings' && (
+        <IntroScreen 
+          isSettings={true}
+          onComplete={(username) => {
+            setCurrentScreen('menu');
+          }}
+          onBack={() => setCurrentScreen('menu')}
         />
       )}
 
