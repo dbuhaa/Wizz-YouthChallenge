@@ -8,11 +8,6 @@ export default function IntroScreen({ userId, onComplete, isSettings = false, on
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-  const [username, setUsername] = useState(() => localStorage.getItem('wizzRouteRushUsername') || '');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
     const trimmedName = username.trim();
     if (trimmedName.length > 0) {
       setIsSubmitting(true);
