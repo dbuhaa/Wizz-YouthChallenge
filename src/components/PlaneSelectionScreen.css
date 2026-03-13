@@ -1,0 +1,100 @@
+.selection-screen {
+  background: linear-gradient(135deg, var(--wizz-blue) 0%, #001a4d 100%);
+  color: var(--wizz-white);
+  padding: 2rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+}
+
+.selection-header {
+  text-align: center;
+  margin-bottom: 2rem;
+  animation: slideDown 0.4s ease-out;
+}
+
+.selection-header h2 {
+  color: var(--wizz-pink);
+  font-size: 2rem;
+}
+
+.plane-options {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  flex: 1;
+}
+
+.hidden-radio {
+  display: none;
+}
+
+.plane-card {
+  display: flex;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.05);
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  padding: 1rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  animation: slideIn 0.4s ease-out forwards;
+  opacity: 0;
+}
+
+.plane-card:nth-child(2) {
+  animation-delay: 0.1s;
+}
+
+.plane-card:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.plane-card.active {
+  background: rgba(198, 0, 126, 0.15);
+  border: 2px solid var(--wizz-pink);
+  box-shadow: 0 4px 15px rgba(198, 0, 126, 0.3);
+  transform: scale(1.02);
+}
+
+.plane-preview {
+  width: 60px;
+  height: auto;
+  margin-right: 1.5rem;
+  filter: drop-shadow(0 4px 6px rgba(0,0,0,0.5));
+  /* Ensure planes point north as generated */
+}
+
+.plane-preview.long {
+  width: 80px; /* Make the A321 noticeably larger compared to the A320 */
+}
+
+.plane-details h3 {
+  color: var(--wizz-white);
+  font-size: 1.2rem;
+  margin-bottom: 0.2rem;
+}
+
+.plane-details p {
+  color: #ccc;
+  font-size: 0.85rem;
+  margin: 0;
+}
+
+.selection-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-top: 2rem;
+}
+
+.start-run-button {
+  background-color: var(--wizz-pink);
+  font-size: 1.2rem;
+  padding: 1rem;
+}
+
+.back-button {
+  background: transparent;
+  color: #ccc;
+  border: 1px solid rgba(255,255,255,0.3);
+}

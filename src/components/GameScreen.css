@@ -1,0 +1,91 @@
+.game-screen {
+  position: relative;
+  background-color: var(--wizz-dark);
+  overflow: hidden;
+}
+
+.game-canvas {
+  touch-action: none; /* Prevent browser scrolling while dragging */
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.game-hud {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  padding: 0.8rem;
+  box-sizing: border-box;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.game-score {
+  background: rgba(255, 255, 255, 0.9);
+  color: var(--wizz-blue);
+  padding: 0.4rem 0.8rem;
+  border-radius: 20px;
+  font-weight: 800;
+  font-size: 1rem;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+}
+
+.hud-perks {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  align-items: flex-end;
+}
+
+.hud-perk {
+  padding: 0.3rem 0.6rem;
+  border-radius: 12px;
+  font-weight: 700;
+  font-size: 0.72rem;
+  white-space: nowrap;
+  animation: perkFadeIn 0.3s ease-out;
+}
+
+.shield-perk {
+  background: rgba(0, 255, 136, 0.85);
+  color: #004d26;
+  box-shadow: 0 2px 8px rgba(0, 255, 136, 0.4);
+}
+
+.speed-perk {
+  background: rgba(255, 165, 0, 0.9);
+  color: #4d2800;
+  box-shadow: 0 2px 8px rgba(255, 165, 0, 0.4);
+}
+
+.turbulence-perk {
+  background: rgba(255, 50, 50, 0.85);
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(255, 50, 50, 0.4);
+  animation: perkFadeIn 0.3s ease-out, hudPulse 0.3s infinite alternate;
+}
+
+.game-multiplier {
+  background: var(--wizz-pink);
+  color: white;
+  padding: 0.3rem 0.6rem;
+  border-radius: 12px;
+  font-weight: 800;
+  font-size: 0.72rem;
+  box-shadow: 0 4px 10px rgba(198,0,126,0.5);
+}
+
+@keyframes perkFadeIn {
+  from { opacity: 0; transform: translateX(10px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes hudPulse {
+  from { transform: scale(1); }
+  to { transform: scale(1.1); }
+}

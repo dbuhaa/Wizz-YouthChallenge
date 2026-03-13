@@ -1,0 +1,126 @@
+.gameover-screen {
+  background: linear-gradient(135deg, var(--wizz-blue) 0%, #1a1a1a 100%);
+  color: var(--wizz-white);
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  gap: 1.5rem;
+  overflow-y: auto;
+}
+
+.gameover-header {
+  animation: slideDown 0.5s ease-out;
+}
+
+.gameover-header h2 {
+  color: var(--wizz-pink);
+  font-size: 2.5rem;
+  margin-bottom: 1rem;
+}
+
+.final-score {
+  background: rgba(255,255,255,0.1);
+  padding: 1.5rem;
+  border-radius: 20px;
+  backdrop-filter: blur(10px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.final-score span {
+  text-transform: uppercase;
+  font-size: 0.9rem;
+  letter-spacing: 2px;
+  color: #ccc;
+}
+
+.final-score strong {
+  font-size: 3rem;
+  color: #fff;
+  line-height: 1;
+  text-shadow: 0 4px 10px rgba(0,0,0,0.5);
+  word-break: break-all;
+}
+
+.reward-box {
+  width: 100%;
+  padding: 1.5rem 1rem;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255,255,255,0.1);
+  animation: scaleIn 0.5s ease-out 0.3s forwards;
+  opacity: 0;
+  box-sizing: border-box; /* Ensure padding doesn't cause overflow */
+}
+
+.reward-box h3 {
+  color: var(--wizz-light-blue);
+  font-size: 1.2rem;
+  margin-bottom: 0.5rem;
+}
+
+.prize-text {
+  font-size: 0.95rem;
+  font-weight: bold;
+  margin-bottom: 1rem;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  white-space: normal;
+  line-height: 1.4;
+  max-width: 100%;
+}
+
+.claim-button {
+  background: var(--wizz-pink);
+  font-size: 0.9rem;
+  padding: 0.6rem 1.2rem;
+}
+
+.gameover-actions {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  gap: 1rem;
+  margin-top: auto;
+  animation: slideUp 0.5s ease-out 0.6s forwards;
+  opacity: 0;
+}
+
+.restart-button {
+  background: var(--wizz-light-blue);
+  font-size: 1.2rem;
+  padding: 1rem;
+}
+
+.menu-button {
+  background: rgba(255,255,255,0.12);
+  border: 1px solid rgba(255,255,255,0.4);
+  color: #fff;
+  font-weight: 600;
+  border-radius: 16px;
+  padding: 0.8rem 1rem;
+}
+
+.menu-button:hover {
+  background: rgba(255,255,255,0.22);
+}
+
+.leaderboard-link-button {
+  background: var(--wizz-light-blue);
+  color: white;
+  font-size: 0.85rem;
+  padding: 0.6rem 1.2rem;
+  border-radius: 12px;
+  font-weight: 700;
+  border: none;
+  cursor: pointer;
+}
+
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.9); }
+  to { opacity: 1; transform: scale(1); }
+}

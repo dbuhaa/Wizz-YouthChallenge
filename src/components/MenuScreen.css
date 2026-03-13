@@ -1,0 +1,157 @@
+.menu-screen {
+  background: linear-gradient(180deg, #00378b 0%, #001a4d 100%);
+  color: var(--wizz-white);
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  gap: 0.8rem;
+}
+
+.menu-header {
+  animation: slideDown 0.6s ease-out;
+}
+
+.wizz-logo-container {
+  display: inline-block;
+  background-color: transparent;
+}
+
+.wizz-official-logo {
+  width: 220px;
+  max-width: 80vw;
+  height: auto;
+  filter: brightness(0) invert(1) drop-shadow(0 4px 10px rgba(0,0,0,0.3));
+}
+
+.menu-title-sub {
+  color: var(--wizz-white);
+  font-size: 1.6rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 3px;
+  margin-top: 0.3rem;
+  margin-bottom: 0.3rem;
+  text-shadow: 0 3px 8px rgba(0,0,0,0.4);
+}
+
+.menu-subtitle {
+  font-size: 1rem;
+  opacity: 0.85;
+  margin: 0.1rem auto;
+  line-height: 1.4;
+}
+
+.menu-plane-preview {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  animation: float 3s ease-in-out infinite;
+  padding: 0.5rem 0;
+}
+
+.plane-mockup {
+  filter: drop-shadow(0 10px 15px rgba(0,0,0,0.2));
+}
+
+.menu-actions {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  animation: slideUp 0.6s ease-out;
+}
+
+.play-button {
+  background-color: var(--wizz-pink);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  border-radius: 16px;
+  font-size: 1.5rem;
+  box-shadow: 0 8px 20px rgba(198, 0, 126, 0.5);
+}
+
+.play-button .subtitle {
+  font-size: 0.8rem;
+  font-weight: 400;
+  opacity: 0.9;
+  margin-top: 0.2rem;
+}
+
+/* ===== WIZZ Discount Club Button ===== */
+.wdc-club-button {
+  background: linear-gradient(135deg, #c6007e 0%, #8b005a 100%);
+  border: 2px solid rgba(255, 255, 255, 0.5);
+  border-radius: 16px;
+  padding: 0.9rem 1rem;
+  box-shadow: 0 6px 20px rgba(198, 0, 126, 0.4);
+  transition: transform 0.2s, box-shadow 0.2s;
+  cursor: pointer;
+}
+
+.wdc-club-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(198, 0, 126, 0.6);
+  background: linear-gradient(135deg, #d4008e 0%, #9e0068 100%);
+}
+
+.wdc-club-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.wdc-club-label {
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--wizz-white);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.wdc-club-sub {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #ffd700;
+  line-height: 1.3;
+  word-wrap: break-word;
+}
+
+/* ===== Secondary Button ===== */
+.secondary-button {
+  background-color: rgba(255,255,255,0.12);
+  backdrop-filter: blur(10px);
+  color: var(--wizz-white);
+  border: 1px solid rgba(255,255,255,0.3);
+  border-radius: 16px;
+}
+.secondary-button:hover {
+  background-color: rgba(255,255,255,0.22);
+}
+
+/* ===== Animations ===== */
+@keyframes float {
+  0% { transform: translateY(0px) rotate(0deg); }
+  50% { transform: translateY(-12px) rotate(2deg); }
+  100% { transform: translateY(0px) rotate(0deg); }
+}
+
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-30px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(30px); }
+  to { opacity: 1; transform: translateY(0); }
+}
