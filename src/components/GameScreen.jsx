@@ -58,6 +58,23 @@ export default function GameScreen({ onGameOver, activePlane = 'a320neo' }) {
     let turbulenceShakeY = 0;
 
     // === CLOUD SYSTEM ===
+    // Offscreen Canvas Optimization: Drawing complex ellipses 24+ times per frame kills mobile GPUs.
+    // We draw an idealized cloud *once* tightly to an offscreen buffer, then stamp it as an image.
+    const cloudBuffer = document.createElement('canvas');
+    cloudBuffer.width = 160;
+    cloudBuffer.height = 80;
+    const cloudCtx = cloudBuffer.getContext('2d');
+    cloudCtx.fillStyle = '#ffffff';
+    cloudCtx.beginPath();
+    cloudCtx.ellipse(80, 40, 50, 20, 0, 0, Math.PI * 2); // Center main body
+    cloudCtx.fill();
+    cloudCtx.beginPath();
+    cloudCtx.ellipse(50, 45, 25, 15, 0, 0, Math.PI * 2); // Left puff
+    cloudCtx.fill();
+    cloudCtx.beginPath();
+    cloudCtx.ellipse(110, 42, 20, 12, 0, 0, Math.PI * 2); // Right puff
+    cloudCtx.fill();
+
     const clouds = [];
     for (let i = 0; i < 8; i++) {
       clouds.push({
@@ -152,20 +169,18 @@ export default function GameScreen({ onGameOver, activePlane = 'a320neo' }) {
           cloud.y = -cloud.h - 20;
           cloud.x = Math.random() * width;
           cloud.w = 60 + Math.random() * 100;
+          cloud.h = 25 + Math.random() * 40;
         }
 
-        ctx.fillStyle = `rgba(255, 255, 255, ${cloud.opacity})`;
-        ctx.beginPath();
-        const cx = cloud.x;
-        const cy = cloud.y;
-        ctx.ellipse(cx, cy, cloud.w / 2, cloud.h / 2, 0, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.beginPath();
-        ctx.ellipse(cx - cloud.w * 0.3, cy + 3, cloud.w * 0.25, cloud.h * 0.35, 0, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.beginPath();
-        ctx.ellipse(cx + cloud.w * 0.25, cy - 2, cloud.w * 0.2, cloud.h * 0.3, 0, 0, Math.PI * 2);
-        ctx.fill();
+        ctx.globalAlpha = cloud.opacity;
+        ctx.drawImage(
+          cloudBuffer, 
+          cloud.x - cloud.w / 2, 
+          cloud.y - cloud.h / 2, 
+          cloud.w, 
+          cloud.h
+        );
+        ctx.globalAlpha = 1.0;
       });
 
       // Lane dividers

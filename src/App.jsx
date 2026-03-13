@@ -6,20 +6,50 @@ import GameOverScreen from './components/GameOverScreen'
 import GameScreen from './components/GameScreen'
 import PlaneSelectionScreen from './components/PlaneSelectionScreen'
 import WdcInfoScreen from './components/WdcInfoScreen'
+import IntroScreen from './components/IntroScreen'
+import { supabase } from './supabaseClient'
 
 function App() {
-  const [currentScreen, setCurrentScreen] = useState('menu'); // 'menu', 'select', 'game', 'gameover', 'leaderboard', 'wdc-info'
+  const [currentScreen, setCurrentScreen] = useState(() => {
+    return localStorage.getItem('wizzRouteRushUsername') ? 'menu' : 'intro';
+  }); // 'intro', 'menu', 'select', 'game', 'gameover', 'leaderboard', 'wdc-info'
   const [lastScore, setLastScore] = useState(0);
   const [activePlane, setActivePlane] = useState('a320neo');
 
-  const handleGameOver = (score) => {
+  const handleGameOver = async (score) => {
     setLastScore(score);
     setCurrentScreen('gameover');
 
-    // Save score to local storage for the prototype leaderboard
-    const localScores = JSON.parse(localStorage.getItem('wizzRouteRushScores') || '[]');
-    localScores.push({ score: score, date: new Date().toISOString() });
-    localStorage.setItem('wizzRouteRushScores', JSON.stringify(localScores));
+    const username = localStorage.getItem('wizzRouteRushUsername');
+    const localBest = parseInt(localStorage.getItem('wizzRouteRushBest') || '0', 10);
+
+    // If it's a new personal best, save it locally and sync to Supabase
+    if (score > localBest) {
+      localStorage.setItem('wizzRouteRushBest', score.toString());
+      
+      if (username) {
+        try {
+          // Check if user already exists
+          const { data, error } = await supabase
+            .from('leaderboard')
+            .select('score')
+            .eq('username', username)
+            .single();
+
+          if (data) {
+            // Update only if higher (which it should be based on local check)
+            if (score > data.score) {
+              await supabase.from('leaderboard').update({ score }).eq('username', username);
+            }
+          } else {
+            // New user entry
+            await supabase.from('leaderboard').insert([{ username, score }]);
+          }
+        } catch (err) {
+          console.error("Failed to sync score to Supabase", err);
+        }
+      }
+    }
   };
 
   const handleStartRun = (planeId) => {
@@ -29,6 +59,15 @@ function App() {
 
   return (
     <div className="app-container">
+      {currentScreen === 'intro' && (
+        <IntroScreen 
+          onComplete={(username) => {
+            // Username is already saved to localStorage inside IntroScreen
+            setCurrentScreen('menu');
+          }}
+        />
+      )}
+
       {currentScreen === 'menu' && (
         <MenuScreen 
           onStartGame={() => setCurrentScreen('select')}

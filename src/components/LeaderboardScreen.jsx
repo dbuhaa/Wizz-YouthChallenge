@@ -1,55 +1,51 @@
 import React, { useEffect, useState } from 'react';
 import './LeaderboardScreen.css';
 import { getRewardForRank } from '../utils/rewards';
-
-const baseMockLeaderboard = [
-  { name: "Ionut P.", score: 45200 },
-  { name: "Maria D.", score: 41050 },
-  { name: "Alex V.", score: 39800 },
-  { name: "Elena G.", score: 31200 },
-  { name: "Andrei S.", score: 25400 },
-  { name: "Diana M.", score: 18900 }
-];
-
-// Generate more mock entries to fill out a top 200
-const extendedMockLeaderboard = [...baseMockLeaderboard];
-for (let i = 7; i <= 200; i++) {
-  extendedMockLeaderboard.push({
-    name: `Player ${i}`,
-    score: Math.floor(18000 - i * 80) + Math.floor(Math.random() * 50)
-  });
-}
+import { supabase } from '../supabaseClient';
 
 export default function LeaderboardScreen({ onBack }) {
   const [leaderboard, setLeaderboard] = useState([]);
   const [viewLimit, setViewLimit] = useState(50);
+  const [isLoading, setIsLoading] = useState(true);
+  
+  const myUsername = localStorage.getItem('wizzRouteRushUsername') || '';
 
   useEffect(() => {
-    // Load local scores
-    const localScores = JSON.parse(localStorage.getItem('wizzRouteRushScores') || '[]');
-    
-    // Combine local scores with mock scores
-    const combined = [...extendedMockLeaderboard];
-    localScores.forEach(local => {
-      combined.push({ name: "YOU", score: local.score, isLocal: true });
-    });
+    const fetchLeaderboard = async () => {
+      setIsLoading(true);
+      try {
+        const { data, error } = await supabase
+          .from('leaderboard')
+          .select('username, score')
+          .order('score', { ascending: false })
+          .limit(viewLimit);
 
-    // Sort descending by score
-    combined.sort((a, b) => b.score - a.score);
+        if (error) {
+          console.error('Error fetching leaderboard:', error);
+          setLeaderboard([]);
+        } else {
+          // Assign ranks and precise rewards mapped from Excel
+          const ranked = (data || []).map((entry, index) => {
+            const currentRank = index + 1;
+            return {
+              name: entry.username,
+              score: entry.score,
+              isLocal: entry.username === myUsername,
+              rank: currentRank,
+              reward: getRewardForRank(currentRank)
+            };
+          });
+          setLeaderboard(ranked);
+        }
+      } catch (err) {
+        console.error('Failed to fetch leaderboard.', err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
-    // Assign ranks and precise rewards mapped from Excel
-    const ranked = combined.map((entry, index) => {
-      const currentRank = index + 1;
-      return {
-        ...entry,
-        rank: currentRank,
-        reward: getRewardForRank(currentRank)
-      };
-    });
-
-    // Keep top viewLimit
-    setLeaderboard(ranked.slice(0, viewLimit));
-  }, [viewLimit]);
+    fetchLeaderboard();
+  }, [viewLimit, myUsername]);
 
   return (
     <div className="leaderboard-screen screen">
@@ -74,16 +70,22 @@ export default function LeaderboardScreen({ onBack }) {
       </div>
 
       <div className="leaderboard-list">
-        {leaderboard.map((entry, idx) => (
-          <div key={idx} className={`leaderboard-item ${entry.rank <= 3 ? 'top-tier' : ''} ${entry.isLocal ? 'highlight-local' : ''}`}>
-            <div className="rank">#{entry.rank}</div>
-            <div className="name">{entry.name}</div>
-            <div className="score-reward">
-              <span className="score">{entry.score.toLocaleString()} pts</span>
-              <span className="reward">{entry.reward}</span>
+        {isLoading ? (
+          <div className="leaderboard-loading">Loading live scores...</div>
+        ) : leaderboard.length === 0 ? (
+          <div className="leaderboard-loading">No scores yet. Be the first!</div>
+        ) : (
+          leaderboard.map((entry, idx) => (
+            <div key={idx} className={`leaderboard-item ${entry.rank <= 3 ? 'top-tier' : ''} ${entry.isLocal ? 'highlight-local' : ''}`}>
+              <div className="rank">#{entry.rank}</div>
+              <div className="name">{entry.name}</div>
+              <div className="score-reward">
+                <span className="score">{entry.score.toLocaleString()} pts</span>
+                <span className="reward">{entry.reward}</span>
+              </div>
             </div>
-          </div>
-        ))}
+          ))
+        )}
       </div>
 
       <button className="back-button" onClick={onBack}>Back to Menu</button>
