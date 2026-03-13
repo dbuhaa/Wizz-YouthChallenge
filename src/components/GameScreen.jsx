@@ -42,7 +42,8 @@ export default function GameScreen({ onGameOver, activePlane = 'a320neo' }) {
     let currentScore = 0;
     
     // Base Speed: Pixels per second
-    let gameSpeedPPS = 600; 
+    const INITIAL_SPEED = 600;
+    let gameSpeedPPS = INITIAL_SPEED; 
     let elapsedTimeMs = 0;
 
     // === PERK STATE ===
@@ -451,7 +452,9 @@ export default function GameScreen({ onGameOver, activePlane = 'a320neo' }) {
         if (dist < obs.radius + player.width/2 - 10) {
           if (speedBoostTimeMs > 0) {
             obstacles.splice(i, 1);
-            currentScore += 200;
+            // Reward proportional to speed for destroying obstacles while boosting
+            const speedFactor = effectiveSpeedPPS / INITIAL_SPEED;
+            currentScore += 200 * speedFactor;
             continue;
           }
           if (hasShield) {
@@ -473,7 +476,9 @@ export default function GameScreen({ onGameOver, activePlane = 'a320neo' }) {
 
         const dist = Math.hypot(player.x - col.x, player.y - col.y);
         if (dist < col.radius + player.width/2) {
-          currentScore += col.scoreVal * (multiplierTimerMs > 0 ? 2 : 1);
+          const speedFactor = effectiveSpeedPPS / INITIAL_SPEED;
+          const perkMultiplier = multiplierTimerMs > 0 ? 2 : 1;
+          currentScore += col.scoreVal * speedFactor * perkMultiplier;
           collectibles.splice(i, 1);
         } else if (col.y > height + 50) {
           collectibles.splice(i, 1);
@@ -499,9 +504,10 @@ export default function GameScreen({ onGameOver, activePlane = 'a320neo' }) {
         }
       }
 
-      // Base score increase (per second instead of per frame)
-      const scoreMultiplier = speedBoostTimeMs > 0 ? 3 : (multiplierTimerMs > 0 ? 2 : 1);
-      currentScore += 30 * scoreMultiplier * (dt / 1000);
+      // Base score increase proportional to speed and active perks
+      const speedFactor = effectiveSpeedPPS / INITIAL_SPEED;
+      const perkMultiplier = speedBoostTimeMs > 0 ? 3 : (multiplierTimerMs > 0 ? 2 : 1);
+      currentScore += 30 * speedFactor * perkMultiplier * (dt / 1000);
       
       // Direct DOM mutation for score to avoid React re-renders hitting the GPU
       if (scoreRef.current && Math.floor(elapsedTimeMs / 100) > Math.floor((elapsedTimeMs - dt) / 100)) {
