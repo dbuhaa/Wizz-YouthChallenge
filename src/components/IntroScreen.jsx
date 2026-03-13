@@ -98,22 +98,6 @@ export default function IntroScreen({ userId, setUserId, onComplete, isSettings 
     }
   };
 
-        if (error) {
-          console.error("Failed to sync username:", error);
-          alert("Error saving username. Please try again.");
-          setIsSubmitting(false);
-          return;
-        }
-
-        // Save locally only after DB success
-        localStorage.setItem('wizzRouteRushUsername', trimmedName);
-        onComplete(trimmedName);
-      } catch (err) {
-        console.error("Internal error syncing username:", err);
-        setIsSubmitting(false);
-      }
-    }
-  };
 
   return (
     <div className="intro-screen screen">
