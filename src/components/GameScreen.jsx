@@ -52,7 +52,7 @@ export default function GameScreen({ onGameOver, activePlane = 'a320neo' }) {
     let speedBoostTimeMs = 0;
     const SPEED_BOOST_DURATION_MS = 1000;
     let downturnTimeMs = 0;
-    const DOWNTURN_DURATION_MS = 10000; // Increased to 10s
+    const DOWNTURN_DURATION_MS = 6000; // Decreased to 6s
 
     // === TURBULENCE STATE ===
     let turbulenceTimeMs = 0;

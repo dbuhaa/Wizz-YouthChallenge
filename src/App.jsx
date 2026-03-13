@@ -127,6 +127,7 @@ function App() {
       
       {currentScreen === 'gameover' && (
         <GameOverScreen 
+          userId={userId}
           score={lastScore}
           onRestart={() => setCurrentScreen('game')}
           onMenu={() => setCurrentScreen('menu')}
