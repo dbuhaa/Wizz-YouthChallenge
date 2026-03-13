@@ -17,8 +17,21 @@ export default function GameScreen({ onGameOver, activePlane = 'a320neo' }) {
     
     const width = canvas.parentElement.clientWidth;
     const height = canvas.parentElement.clientHeight;
-    canvas.width = width;
-    canvas.height = height;
+    
+    // Scale for high-DPI (Retina) displays to fix pixelation
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = width * dpr;
+    canvas.height = height * dpr;
+    
+    // Normalize coordinate system to use CSS pixels
+    ctx.scale(dpr, dpr);
+    
+    // Cache the sky gradient (huge performance boost on mobile)
+    const skyGrad = ctx.createLinearGradient(0, 0, 0, height);
+    skyGrad.addColorStop(0, '#87CEEB');   // Light sky blue
+    skyGrad.addColorStop(0.4, '#5BA3D9'); // Mid blue
+    skyGrad.addColorStop(0.8, '#2E75B6'); // Deeper blue
+    skyGrad.addColorStop(1, '#1B4F8A');   // Dark horizon
 
     // Game State
     let animationFrameId;
@@ -121,12 +134,7 @@ export default function GameScreen({ onGameOver, activePlane = 'a320neo' }) {
     // === DRAWING FUNCTIONS ===
 
     const drawSkyBackground = () => {
-      // Sky gradient (top = lighter blue, bottom = deeper blue)
-      const skyGrad = ctx.createLinearGradient(0, 0, 0, height);
-      skyGrad.addColorStop(0, '#87CEEB');   // Light sky blue
-      skyGrad.addColorStop(0.4, '#5BA3D9'); // Mid blue
-      skyGrad.addColorStop(0.8, '#2E75B6'); // Deeper blue
-      skyGrad.addColorStop(1, '#1B4F8A');   // Dark horizon
+      // Use cached sky gradient
       ctx.fillStyle = skyGrad;
       ctx.fillRect(0, 0, width, height);
 
@@ -171,16 +179,18 @@ export default function GameScreen({ onGameOver, activePlane = 'a320neo' }) {
     };
 
     const drawPlayer = () => {
-      // Shield glow effect
+      // Shield glow effect (optimized, no shadowBlur)
       if (hasShield) {
         ctx.save();
-        ctx.shadowColor = '#00ff88';
-        ctx.shadowBlur = 20;
-        ctx.strokeStyle = 'rgba(0, 255, 136, 0.6)';
-        ctx.lineWidth = 3;
+        ctx.strokeStyle = 'rgba(0, 255, 136, 0.8)';
+        ctx.lineWidth = 4;
         ctx.beginPath();
         ctx.arc(player.x, player.y, player.width * 0.7, 0, Math.PI * 2);
         ctx.stroke();
+        
+        // Inner faint glow
+        ctx.fillStyle = 'rgba(0, 255, 136, 0.2)';
+        ctx.fill();
         ctx.restore();
       }
 
@@ -251,13 +261,11 @@ export default function GameScreen({ onGameOver, activePlane = 'a320neo' }) {
         const r = perk.radius + pulse;
 
         if (perk.type === 'shield') {
-          // Green glowing shield icon
+          // Green glowing shield icon (optimized)
           ctx.save();
-          ctx.shadowColor = '#00ff88';
-          ctx.shadowBlur = 15;
-          ctx.fillStyle = 'rgba(0, 255, 136, 0.3)';
+          ctx.fillStyle = 'rgba(0, 255, 136, 0.4)';
           ctx.beginPath();
-          ctx.arc(perk.x, perk.y, r + 5, 0, Math.PI * 2);
+          ctx.arc(perk.x, perk.y, r + 6, 0, Math.PI * 2);
           ctx.fill();
           ctx.fillStyle = '#00ff88';
           ctx.beginPath();
@@ -271,13 +279,11 @@ export default function GameScreen({ onGameOver, activePlane = 'a320neo' }) {
           ctx.textBaseline = 'middle';
           ctx.fillText('🛡', perk.x, perk.y);
         } else if (perk.type === 'speed') {
-          // Orange/gold speed boost icon
+          // Orange/gold speed boost icon (optimized)
           ctx.save();
-          ctx.shadowColor = '#ffd700';
-          ctx.shadowBlur = 15;
-          ctx.fillStyle = 'rgba(255, 215, 0, 0.3)';
+          ctx.fillStyle = 'rgba(255, 215, 0, 0.4)';
           ctx.beginPath();
-          ctx.arc(perk.x, perk.y, r + 5, 0, Math.PI * 2);
+          ctx.arc(perk.x, perk.y, r + 6, 0, Math.PI * 2);
           ctx.fill();
           ctx.fillStyle = '#ffa500';
           ctx.beginPath();
