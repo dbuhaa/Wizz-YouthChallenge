@@ -1,3 +1,8 @@
+import React, { useEffect, useState } from 'react';
+import './GameOverScreen.css';
+import { getRewardForRank, getRewardTierClass } from '../utils/rewards';
+import { supabase } from '../supabaseClient';
+
 export default function GameOverScreen({ score, userId, onRestart, onMenu, onShowLeaderboard }) {
   const [playerRank, setPlayerRank] = useState(null);
   const [totalPlayers, setTotalPlayers] = useState(0);
