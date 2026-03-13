@@ -21,33 +21,27 @@ function App() {
     setCurrentScreen('gameover');
 
     const username = localStorage.getItem('wizzRouteRushUsername');
-    const localBest = parseInt(localStorage.getItem('wizzRouteRushBest') || '0', 10);
 
-    // If it's a new personal best, save it locally and sync to Supabase
-    if (score > localBest) {
-      localStorage.setItem('wizzRouteRushBest', score.toString());
-      
-      if (username) {
-        try {
-          // Check if user already exists
-          const { data, error } = await supabase
-            .from('leaderboard')
-            .select('score')
-            .eq('username', username)
-            .single();
+    if (username) {
+      try {
+        // Check if user already exists in DB
+        const { data, error } = await supabase
+          .from('leaderboard')
+          .select('score')
+          .eq('username', username)
+          .maybeSingle();
 
-          if (data) {
-            // Update only if higher (which it should be based on local check)
-            if (score > data.score) {
-              await supabase.from('leaderboard').update({ score }).eq('username', username);
-            }
-          } else {
-            // New user entry
-            await supabase.from('leaderboard').insert([{ username, score }]);
+        if (data) {
+          // Update only if the new score is higher than their database score
+          if (score > data.score) {
+            await supabase.from('leaderboard').update({ score }).eq('username', username);
           }
-        } catch (err) {
-          console.error("Failed to sync score to Supabase", err);
+        } else {
+          // New user entry
+          await supabase.from('leaderboard').insert([{ username, score }]);
         }
+      } catch (err) {
+        console.error("Failed to sync score to Supabase", err);
       }
     }
   };
