@@ -1,39 +1,43 @@
 import React, { useEffect, useState } from 'react';
 import './GameOverScreen.css';
 import { getRewardForRank, getRewardTierClass } from '../utils/rewards';
-
-const baseMockLeaderboard = [
-  { name: "Ionut P.", score: 45200 },
-  { name: "Maria D.", score: 41050 },
-  { name: "Alex V.", score: 39800 },
-  { name: "Elena G.", score: 31200 },
-  { name: "Andrei S.", score: 25400 },
-  { name: "Diana M.", score: 18900 }
-];
+import { supabase } from '../supabaseClient';
 
 export default function GameOverScreen({ score, onRestart, onMenu, onShowLeaderboard }) {
   const [playerRank, setPlayerRank] = useState(null);
-  const [totalPlayers, setTotalPlayers] = useState(0);
+  const [isLoadingRank, setIsLoadingRank] = useState(true);
 
   useEffect(() => {
-    // Calculate final rank directly
-    const localScores = JSON.parse(localStorage.getItem('wizzRouteRushScores') || '[]');
-    const combined = [...baseMockLeaderboard];
-    localScores.forEach(local => {
-      combined.push({ name: "YOU", score: local.score, isLocal: true });
-    });
+    const fetchRank = async () => {
+      setIsLoadingRank(true);
+      try {
+        // 1. Get total number of players
+        const { count: total, error: countError } = await supabase
+          .from('leaderboard')
+          .select('*', { count: 'exact', head: true });
+          
+        if (!countError && total !== null) {
+           setTotalPlayers(total);
+        }
 
-    // Make sure current score is in there in case app state hasn't flushed yet
-    if (!combined.find(c => c.score === score && c.isLocal)) {
-       combined.push({ name: "YOU", score: score, isLocal: true });
-    }
+        // 2. Calculate rank by finding how many players have a STRICTLY GREATER score
+        const { count: higherScoresCount, error: rankError } = await supabase
+          .from('leaderboard')
+          .select('*', { count: 'exact', head: true })
+          .gt('score', score);
 
-    combined.sort((a, b) => b.score - a.score);
-    
-    // Find the current run's rank (first index matching this score that is local)
-    const rankIndex = combined.findIndex(c => c.score === score && c.isLocal);
-    setPlayerRank(rankIndex + 1);
-    setTotalPlayers(combined.length);
+        if (!rankError && higherScoresCount !== null) {
+          // Rank is simply (number of people better than you) + 1
+          setPlayerRank(higherScoresCount + 1);
+        }
+      } catch (err) {
+         console.error("Failed to fetch rank from Supabase:", err);
+      } finally {
+         setIsLoadingRank(false);
+      }
+    };
+
+    fetchRank();
   }, [score]);
 
   let prizeText = "Better luck next time! Keep flying.";
@@ -53,7 +57,11 @@ export default function GameOverScreen({ score, onRestart, onMenu, onShowLeaderb
           <strong>{score.toLocaleString()}</strong>
         </div>
         
-        {playerRank && (
+        {isLoadingRank ? (
+           <div className="rank-indicator" style={{ opacity: 0.7 }}>
+             Calculating global rank...
+           </div>
+        ) : playerRank && (
           <div className="rank-indicator">
              You placed <strong>#{playerRank}</strong> out of {totalPlayers} players!
           </div>
