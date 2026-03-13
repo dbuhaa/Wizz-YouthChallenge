@@ -13,7 +13,7 @@ export default function IntroScreen({ userId, setUserId, onComplete, isSettings 
       setIsSubmitting(true);
       
       try {
-        // Fetch current IP to enforce "one user per IP" requirement and convergence
+        // 1. Fetch current IP (optional, for recovery)
         let currentIp = '';
         try {
           const ipRes = await fetch('https://api.ipify.org?format=json');
@@ -23,76 +23,98 @@ export default function IntroScreen({ userId, setUserId, onComplete, isSettings 
           console.error("Failed to fetch IP:", ipErr);
         }
 
-        // --- CONVERGENCE LOGIC ---
-        // Find ALL records that match either this IP or the chosen username
+        // 2. Fetch all candidates for convergence (ID, Username, OR IP)
         let matches = [];
-        const isNewUser = !localStorage.getItem('wizzRouteRushUsername');
+        let ipColumnExists = true;
 
-        if (currentIp) {
-          const { data } = await supabase
-            .from('leaderboard')
-            .select('*')
-            .or(`ip.eq.${currentIp},username.eq.${trimmedName}`);
-          matches = data || [];
-        } else {
-          const { data } = await supabase
-            .from('leaderboard')
-            .select('*')
-            .eq('username', trimmedName);
+        try {
+          // Attempt a robust search if IP column exists
+          const query = supabase.from('leaderboard').select('*');
+          if (currentIp) {
+            query.or(`ip.eq.${currentIp},username.eq.${trimmedName},id.eq.${userId}`);
+          } else {
+            query.or(`username.eq.${trimmedName},id.eq.${userId}`);
+          }
+          const { data, error: queryError } = await query;
+          
+          if (queryError) {
+             // If error is specifically about the 'ip' column, fallback
+             if (queryError.message.includes('column "ip" does not exist')) {
+                ipColumnExists = false;
+                const { data: fallbackData } = await supabase
+                  .from('leaderboard')
+                  .select('*')
+                  .or(`username.eq.${trimmedName},id.eq.${userId}`);
+                matches = fallbackData || [];
+             } else {
+                throw queryError;
+             }
+          } else {
+            matches = data || [];
+          }
+        } catch (searchErr) {
+          console.warn("Search for matches failed, falling back to minimal sync:", searchErr);
+          // Last resort fallback
+          const { data } = await supabase.from('leaderboard').select('*').eq('id', userId);
           matches = data || [];
         }
 
+        // 3. Determine Final Identity and Max Score
         let finalUserId = userId;
         let finalScore = 0;
 
         if (matches.length > 0) {
-          // 1. Determine the "Survivor" (record with the highest score)
+          // Survivor is the record with the highest score
           const survivor = matches.reduce((prev, curr) => (prev.score > curr.score) ? prev : curr);
-          
           finalUserId = survivor.id;
           finalScore = survivor.score;
 
-          // 2. Converge: Delete all OTHER records found in the match
-          const idsToDelete = matches
-            .map(m => m.id)
-            .filter(id => id !== finalUserId);
-
+          // converge logic: delete all others
+          const idsToDelete = matches.map(m => m.id).filter(id => id !== finalUserId);
           if (idsToDelete.length > 0) {
-            console.log("Converging accounts, deleting duplicates:", idsToDelete);
+            console.log("Converging accounts, removing duplicates:", idsToDelete);
             await supabase.from('leaderboard').delete().in('id', idsToDelete);
           }
         }
 
-        // 3. Adoption: Update local storage and state with the survivor (or current) ID
+        // 4. Adoption: Sync local and global state
         if (finalUserId !== userId) {
           localStorage.setItem('wizzRouteRushUserId', finalUserId);
           if (setUserId) setUserId(finalUserId);
         }
 
-        // 4. Upsert the final state
+        // 5. Upsert final survivor record
         const updateData = { 
           id: finalUserId, 
           username: trimmedName,
-          score: finalScore // Preserve the best score found during convergence
+          score: finalScore
         };
-        if (currentIp) updateData.ip = currentIp;
+        if (currentIp && ipColumnExists) updateData.ip = currentIp;
 
-        const { error } = await supabase
+        const { error: upsertError } = await supabase
           .from('leaderboard')
           .upsert(updateData, { onConflict: 'id' });
 
-        if (error) {
-          console.error("Failed to sync username/convergence:", error);
-          alert("Error saving settings. Please verify your internet connection.");
-          setIsSubmitting(false);
-          return;
+        if (upsertError) {
+          // If we mis-detected the 'ip' column, try one last time without it
+          if (upsertError.message.includes('column "ip" does not exist')) {
+            delete updateData.ip;
+            const { error: retryError } = await supabase
+              .from('leaderboard')
+              .upsert(updateData, { onConflict: 'id' });
+            
+            if (retryError) throw retryError;
+          } else {
+            throw upsertError;
+          }
         }
 
-        // Save locally only after DB success
+        // Success!
         localStorage.setItem('wizzRouteRushUsername', trimmedName);
         onComplete(trimmedName);
       } catch (err) {
-        console.error("Internal error during convergence:", err);
+        console.error("Internal sync error:", err);
+        alert(`Error saving settings: ${err.message || 'unknown error'}.\n\nIf you see 'column ip does not exist', please ask the developer to run the database migration.`);
         setIsSubmitting(false);
       }
     }
