@@ -63,7 +63,8 @@ function App() {
   }, [bgm, isMuted]);
 
   const [currentScreen, setCurrentScreen] = useState(() => {
-    return localStorage.getItem('wizzRouteRushUsername') ? 'menu' : 'intro';
+    const savedName = (localStorage.getItem('wizzRouteRushUsername') || '').trim();
+    return savedName.length > 0 ? 'menu' : 'intro';
   }); 
   const [lastScore, setLastScore] = useState(0);
   const [activePlane, setActivePlane] = useState('a320neo');
