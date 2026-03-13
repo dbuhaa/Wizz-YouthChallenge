@@ -62,12 +62,51 @@ function App() {
     };
   }, [bgm, isMuted]);
 
-  const [currentScreen, setCurrentScreen] = useState(() => {
-    const savedName = (localStorage.getItem('wizzRouteRushUsername') || '').trim();
-    return savedName.length > 0 ? 'menu' : 'intro';
-  }); 
+  const [currentScreen, setCurrentScreen] = useState('loading'); 
   const [lastScore, setLastScore] = useState(0);
   const [activePlane, setActivePlane] = useState('a320neo');
+
+  // Startup identity verification: Detect if our userId was hijacked by the old
+  // IP convergence bug. If the DB record has a different name, fork off a new identity.
+  useEffect(() => {
+    const verifyIdentity = async () => {
+      const savedName = (localStorage.getItem('wizzRouteRushUsername') || '').trim();
+      
+      // No username saved → new user, go to intro
+      if (!savedName) {
+        setCurrentScreen('intro');
+        return;
+      }
+
+      try {
+        const { data } = await supabase
+          .from('leaderboard')
+          .select('username')
+          .eq('id', userId)
+          .maybeSingle();
+
+        if (data && data.username !== savedName) {
+          // DB record exists but has a DIFFERENT name → someone else took over our userId
+          // via the old IP merge. Fork: generate a fresh ID for THIS user.
+          console.warn(`Identity mismatch: local="${savedName}" vs db="${data.username}". Creating fresh identity.`);
+          const newId = crypto.randomUUID();
+          localStorage.setItem('wizzRouteRushUserId', newId);
+          setCookie('wizzRouteRushUserId', newId);
+          setUserId(newId);
+          // Send to intro so they can re-register under the new ID
+          setCurrentScreen('intro');
+          return;
+        }
+      } catch (err) {
+        console.warn("Identity check failed, proceeding normally:", err);
+      }
+
+      // Everything checks out — go to menu
+      setCurrentScreen('menu');
+    };
+
+    verifyIdentity();
+  }, []); // Only run once on mount
 
   const handleGameOver = async (score) => {
     setLastScore(score);
@@ -112,6 +151,12 @@ function App() {
 
   return (
     <div className="app-container">
+      {currentScreen === 'loading' && (
+        <div className="screen" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', background: 'var(--wizz-blue)' }}>
+          <img src={`${import.meta.env.BASE_URL}wizz_logo.svg`} alt="Loading..." style={{ width: '120px', opacity: 0.8 }} />
+        </div>
+      )}
+
       {currentScreen === 'intro' && (
         <IntroScreen 
           userId={userId}
