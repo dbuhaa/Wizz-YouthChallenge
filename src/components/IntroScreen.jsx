@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import './IntroScreen.css';
 import { supabase } from '../supabaseClient';
 
-export default function IntroScreen({ userId, setUserId, onComplete, isSettings = false, onBack = null, isMuted, toggleMute }) {
+export default function IntroScreen({ userId, setUserId, onComplete, isSettings = false, onBack = null }) {
   const [username, setUsername] = useState(() => localStorage.getItem('wizzRouteRushUsername') || '');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -132,17 +132,6 @@ export default function IntroScreen({ userId, setUserId, onComplete, isSettings 
           </button>
           
           {isSettings && (
-            <>
-              <button 
-                type="button" 
-                className="intro-button secondary"
-                style={{ backgroundColor: 'rgba(255,255,255,0.1)', border: '2px solid white', marginTop: '10px' }}
-                onClick={toggleMute}
-                disabled={isSubmitting}
-              >
-                {isMuted ? '🔇 Unmute Music' : '🔊 Mute Music'}
-              </button>
-
               <button 
                 type="button" 
                 className="intro-button secondary"
@@ -152,7 +141,6 @@ export default function IntroScreen({ userId, setUserId, onComplete, isSettings 
               >
                 Cancel
               </button>
-            </>
           )}
         </div>
       </form>

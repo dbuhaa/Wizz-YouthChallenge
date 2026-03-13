@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import './GameScreen.css';
 
-export default function GameScreen({ onGameOver, onMenu, activePlane = 'a320neo', isMuted, toggleMute }) {
+export default function GameScreen({ onGameOver, onMenu, activePlane = 'a320neo' }) {
   const canvasRef = useRef(null);
   const scoreRef = useRef(null); // Ref for direct DOM mutation
   const [multiplier, setMultiplier] = useState(1);
@@ -9,9 +9,9 @@ export default function GameScreen({ onGameOver, onMenu, activePlane = 'a320neo'
   const isPausedRef = useRef(false);
 
   const togglePause = (val) => {
-    const next = typeof val === 'boolean' ? val : !isPaused;
-    setIsPaused(next);
+    const next = typeof val === 'boolean' ? val : !isPausedRef.current;
     isPausedRef.current = next;
+    setIsPaused(next);
   };
 
   let multiplierTimerMs = 0; // Local variable instead of React state
@@ -690,9 +690,6 @@ export default function GameScreen({ onGameOver, onMenu, activePlane = 'a320neo'
             <div className="pause-actions">
               <button className="resume-button" onClick={() => togglePause(false)}>
                 RESUME FLIGHT
-              </button>
-              <button className="secondary-pause-button" onClick={toggleMute}>
-                {isMuted ? '🔊 UNMUTE' : '🔇 MUTE'}
               </button>
               <button className="secondary-pause-button" onClick={onMenu}>
                 QUIT TO MENU

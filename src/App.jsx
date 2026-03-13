@@ -11,7 +11,6 @@ import { supabase } from './supabaseClient'
 
 import { getCookie, setCookie } from './utils/cookies'
 
-const BGM_PATH = `${import.meta.env.BASE_URL}songs/bgm.mp3`;
 
 function App() {
   const [userId, setUserId] = useState(() => {
@@ -28,39 +27,6 @@ function App() {
     return id;
   });
 
-  const [isMuted, setIsMuted] = useState(() => localStorage.getItem('wizzRouteRushMuted') === 'true');
-  const [bgm] = useState(() => {
-    const audio = new Audio(BGM_PATH);
-    audio.loop = true;
-    return audio;
-  });
-
-  const toggleMute = () => {
-    setIsMuted(prev => {
-      const next = !prev;
-      localStorage.setItem('wizzRouteRushMuted', next);
-      if (next) bgm.pause();
-      else bgm.play().catch(e => console.warn("Autoplay blocked", e));
-      return next;
-    });
-  };
-
-  // Start music on first interaction if not muted
-  useEffect(() => {
-    const startAudio = () => {
-      if (!isMuted) {
-        bgm.play().catch(e => console.warn("Start audio failed:", e));
-      }
-      window.removeEventListener('pointerdown', startAudio);
-      window.removeEventListener('keydown', startAudio);
-    };
-    window.addEventListener('pointerdown', startAudio);
-    window.addEventListener('keydown', startAudio);
-    return () => {
-      window.removeEventListener('pointerdown', startAudio);
-      window.removeEventListener('keydown', startAudio);
-    };
-  }, [bgm, isMuted]);
 
   const [currentScreen, setCurrentScreen] = useState('loading'); 
   const [lastScore, setLastScore] = useState(0);
@@ -172,8 +138,6 @@ function App() {
           userId={userId}
           setUserId={setUserId}
           isSettings={true}
-          isMuted={isMuted}
-          toggleMute={toggleMute}
           onComplete={(username) => {
             setCurrentScreen('menu');
           }}
@@ -186,8 +150,6 @@ function App() {
           onStartGame={() => setCurrentScreen('select')}
           onShowLeaderboard={() => setCurrentScreen('leaderboard')}
           setCurrentScreen={setCurrentScreen}
-          isMuted={isMuted}
-          toggleMute={toggleMute}
         />
       )}
       
@@ -215,8 +177,6 @@ function App() {
           onGameOver={handleGameOver} 
           onMenu={() => setCurrentScreen('menu')}
           activePlane={activePlane} 
-          isMuted={isMuted}
-          toggleMute={toggleMute}
         />
       )}
       
