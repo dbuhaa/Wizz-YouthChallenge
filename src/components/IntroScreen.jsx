@@ -1,18 +1,37 @@
 import React, { useState } from 'react';
 import './IntroScreen.css';
+import { supabase } from '../supabaseClient';
 
-export default function IntroScreen({ onComplete, isSettings = false, onBack = null }) {
+export default function IntroScreen({ userId, onComplete, isSettings = false, onBack = null }) {
   const [username, setUsername] = useState(() => localStorage.getItem('wizzRouteRushUsername') || '');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     const trimmedName = username.trim();
     if (trimmedName.length > 0) {
       setIsSubmitting(true);
-      // Save locally to ensure we don't ask again on this device
-      localStorage.setItem('wizzRouteRushUsername', trimmedName);
-      onComplete(trimmedName);
+      
+      try {
+        // Sync to Supabase using the persistent ID
+        const { error } = await supabase
+          .from('leaderboard')
+          .upsert({ id: userId, username: trimmedName }, { onConflict: 'id' });
+
+        if (error) {
+          console.error("Failed to sync username:", error);
+          alert("Error saving username. Please try again.");
+          setIsSubmitting(false);
+          return;
+        }
+
+        // Save locally only after DB success
+        localStorage.setItem('wizzRouteRushUsername', trimmedName);
+        onComplete(trimmedName);
+      } catch (err) {
+        console.error("Internal error syncing username:", err);
+        setIsSubmitting(false);
+      }
     }
   };
 

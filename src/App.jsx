@@ -10,6 +10,15 @@ import IntroScreen from './components/IntroScreen'
 import { supabase } from './supabaseClient'
 
 function App() {
+  const [userId] = useState(() => {
+    let id = localStorage.getItem('wizzRouteRushUserId');
+    if (!id) {
+      id = crypto.randomUUID();
+      localStorage.setItem('wizzRouteRushUserId', id);
+    }
+    return id;
+  });
+
   const [currentScreen, setCurrentScreen] = useState(() => {
     return localStorage.getItem('wizzRouteRushUsername') ? 'menu' : 'intro';
   }); // 'intro', 'menu', 'select', 'game', 'gameover', 'leaderboard', 'wdc-info'
@@ -22,23 +31,33 @@ function App() {
 
     const username = localStorage.getItem('wizzRouteRushUsername');
 
-    if (username) {
+    if (username && userId) {
       try {
-        // Check if user already exists in DB
-        const { data, error } = await supabase
+        // Upsert by ID to ensure name changes don't create duplicate entries
+        // and that history is preserved.
+        const { data, error: fetchError } = await supabase
           .from('leaderboard')
           .select('score')
-          .eq('username', username)
+          .eq('id', userId)
           .maybeSingle();
 
         if (data) {
-          // Update only if the new score is higher than their database score
+          // Update only if higher score
           if (score > data.score) {
-            await supabase.from('leaderboard').update({ score }).eq('username', username);
+            await supabase
+              .from('leaderboard')
+              .update({ score, username }) // Also update name in case it changed
+              .eq('id', userId);
+          } else {
+            // Even if score isn't higher, still update the name to reflect any changes
+            await supabase
+              .from('leaderboard')
+              .update({ username })
+              .eq('id', userId);
           }
         } else {
-          // New user entry
-          await supabase.from('leaderboard').insert([{ username, score }]);
+          // New user entry with our pre-generated ID
+          await supabase.from('leaderboard').insert([{ id: userId, username, score }]);
         }
       } catch (err) {
         console.error("Failed to sync score to Supabase", err);
@@ -55,6 +74,7 @@ function App() {
     <div className="app-container">
       {currentScreen === 'intro' && (
         <IntroScreen 
+          userId={userId}
           onComplete={(username) => {
             setCurrentScreen('menu');
           }}
@@ -63,6 +83,7 @@ function App() {
 
       {currentScreen === 'settings' && (
         <IntroScreen 
+          userId={userId}
           isSettings={true}
           onComplete={(username) => {
             setCurrentScreen('menu');

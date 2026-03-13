@@ -8,6 +8,7 @@ export default function LeaderboardScreen({ onBack }) {
   const [viewLimit, setViewLimit] = useState(50);
   const [isLoading, setIsLoading] = useState(true);
   
+  const myUserId = localStorage.getItem('wizzRouteRushUserId') || '';
   const myUsername = localStorage.getItem('wizzRouteRushUsername') || '';
 
   useEffect(() => {
@@ -16,7 +17,7 @@ export default function LeaderboardScreen({ onBack }) {
       try {
         const { data, error } = await supabase
           .from('leaderboard')
-          .select('username, score')
+          .select('id, username, score')
           .order('score', { ascending: false })
           .limit(viewLimit);
 
@@ -30,7 +31,7 @@ export default function LeaderboardScreen({ onBack }) {
             return {
               name: entry.username,
               score: entry.score,
-              isLocal: entry.username === myUsername,
+              isLocal: entry.id === myUserId,
               rank: currentRank,
               reward: getRewardForRank(currentRank)
             };
