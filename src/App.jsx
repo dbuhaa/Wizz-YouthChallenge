@@ -10,7 +10,7 @@ import IntroScreen from './components/IntroScreen'
 import { supabase } from './supabaseClient'
 
 function App() {
-  const [userId] = useState(() => {
+  const [userId, setUserId] = useState(() => {
     let id = localStorage.getItem('wizzRouteRushUserId');
     if (!id) {
       id = crypto.randomUUID();
@@ -75,6 +75,7 @@ function App() {
       {currentScreen === 'intro' && (
         <IntroScreen 
           userId={userId}
+          setUserId={setUserId}
           onComplete={(username) => {
             setCurrentScreen('menu');
           }}
@@ -84,6 +85,7 @@ function App() {
       {currentScreen === 'settings' && (
         <IntroScreen 
           userId={userId}
+          setUserId={setUserId}
           isSettings={true}
           onComplete={(username) => {
             setCurrentScreen('menu');

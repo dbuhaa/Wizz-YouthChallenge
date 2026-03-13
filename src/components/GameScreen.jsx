@@ -52,7 +52,7 @@ export default function GameScreen({ onGameOver, activePlane = 'a320neo' }) {
     let speedBoostTimeMs = 0;
     const SPEED_BOOST_DURATION_MS = 1000;
     let downturnTimeMs = 0;
-    const DOWNTURN_DURATION_MS = 7000;
+    const DOWNTURN_DURATION_MS = 10000; // Increased to 10s
 
     // === TURBULENCE STATE ===
     let turbulenceTimeMs = 0;
@@ -467,13 +467,15 @@ export default function GameScreen({ onGameOver, activePlane = 'a320neo' }) {
           });
         }
 
-        if (Math.random() > 0.97) {
+        if (Math.random() > 0.94) { // More frequent perks (6% instead of 3%)
           const spawnLane = Math.floor(Math.random() * NUM_LANES);
           const roll = Math.random();
           let perkType = 'shield';
-          if (roll > 0.75) perkType = 'speed';
-          else if (roll > 0.50) perkType = 'multiplier';
-          else if (roll > 0.25) perkType = 'downturn';
+          
+          if (roll > 0.60) perkType = 'downturn';      // 40% chance
+          else if (roll > 0.35) perkType = 'multiplier'; // 25% chance
+          else if (roll > 0.15) perkType = 'speed';      // 20% chance
+          else perkType = 'shield';                      // 15% chance
           
           if (!(perkType === 'shield' && hasShield) && !(perkType === 'multiplier' && multiplierTimerMs > 0) && !(perkType === 'downturn' && downturnTimeMs > 0)) {
             perks.push({

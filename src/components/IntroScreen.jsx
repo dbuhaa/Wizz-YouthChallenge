@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import './IntroScreen.css';
 import { supabase } from '../supabaseClient';
 
-export default function IntroScreen({ userId, onComplete, isSettings = false, onBack = null }) {
+export default function IntroScreen({ userId, setUserId, onComplete, isSettings = false, onBack = null }) {
   const [username, setUsername] = useState(() => localStorage.getItem('wizzRouteRushUsername') || '');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -13,7 +13,7 @@ export default function IntroScreen({ userId, onComplete, isSettings = false, on
       setIsSubmitting(true);
       
       try {
-        // Fetch current IP to enforce "one user per IP" requirement
+        // Fetch current IP to enforce "one user per IP" requirement and convergence
         let currentIp = '';
         try {
           const ipRes = await fetch('https://api.ipify.org?format=json');
@@ -23,64 +23,80 @@ export default function IntroScreen({ userId, onComplete, isSettings = false, on
           console.error("Failed to fetch IP:", ipErr);
         }
 
-        // 1. Check if this username already exists
-        const { data: nameMatch } = await supabase
-          .from('leaderboard')
-          .select('id')
-          .eq('username', trimmedName)
-          .maybeSingle();
+        // --- CONVERGENCE LOGIC ---
+        // Find ALL records that match either this IP or the chosen username
+        let matches = [];
+        const isNewUser = !localStorage.getItem('wizzRouteRushUsername');
 
-        // 2. ALSO check if this IP already has a registered user
-        let ipMatch = null;
         if (currentIp) {
           const { data } = await supabase
             .from('leaderboard')
-            .select('id')
-            .eq('ip', currentIp)
-            .maybeSingle();
-          ipMatch = data;
+            .select('*')
+            .or(`ip.eq.${currentIp},username.eq.${trimmedName}`);
+          matches = data || [];
+        } else {
+          const { data } = await supabase
+            .from('leaderboard')
+            .select('*')
+            .eq('username', trimmedName);
+          matches = data || [];
         }
 
         let finalUserId = userId;
+        let finalScore = 0;
 
-        // Adoption logic: prioritze IP match then Name match
-        // Only adopt if we are currently "anonymous" or "new"
-        const isNewUser = !localStorage.getItem('wizzRouteRushUsername');
-        
-        if (isNewUser) {
-          if (ipMatch && ipMatch.id !== userId) {
-            finalUserId = ipMatch.id;
-          } else if (nameMatch && nameMatch.id !== userId) {
-            finalUserId = nameMatch.id;
-          }
-        } else {
-          // If we ARE an existing user (in settings), we check if the name is taken by SOMEONE ELSE
-          if (nameMatch && nameMatch.id !== userId) {
-            alert("This username is already taken. Please choose another one.");
-            setIsSubmitting(false);
-            return;
+        if (matches.length > 0) {
+          // 1. Determine the "Survivor" (record with the highest score)
+          const survivor = matches.reduce((prev, curr) => (prev.score > curr.score) ? prev : curr);
+          
+          finalUserId = survivor.id;
+          finalScore = survivor.score;
+
+          // 2. Converge: Delete all OTHER records found in the match
+          const idsToDelete = matches
+            .map(m => m.id)
+            .filter(id => id !== finalUserId);
+
+          if (idsToDelete.length > 0) {
+            console.log("Converging accounts, deleting duplicates:", idsToDelete);
+            await supabase.from('leaderboard').delete().in('id', idsToDelete);
           }
         }
 
+        // 3. Adoption: Update local storage and state with the survivor (or current) ID
         if (finalUserId !== userId) {
-           localStorage.setItem('wizzRouteRushUserId', finalUserId);
+          localStorage.setItem('wizzRouteRushUserId', finalUserId);
+          if (setUserId) setUserId(finalUserId);
         }
 
-        // Prepare update data
+        // 4. Upsert the final state
         const updateData = { 
           id: finalUserId, 
-          username: trimmedName 
+          username: trimmedName,
+          score: finalScore // Preserve the best score found during convergence
         };
-        
-        // Only include IP if we found one
-        if (currentIp) {
-          updateData.ip = currentIp;
-        }
+        if (currentIp) updateData.ip = currentIp;
 
-        // Sync to Supabase using the persistent ID
         const { error } = await supabase
           .from('leaderboard')
           .upsert(updateData, { onConflict: 'id' });
+
+        if (error) {
+          console.error("Failed to sync username/convergence:", error);
+          alert("Error saving settings. Please verify your internet connection.");
+          setIsSubmitting(false);
+          return;
+        }
+
+        // Save locally only after DB success
+        localStorage.setItem('wizzRouteRushUsername', trimmedName);
+        onComplete(trimmedName);
+      } catch (err) {
+        console.error("Internal error during convergence:", err);
+        setIsSubmitting(false);
+      }
+    }
+  };
 
         if (error) {
           console.error("Failed to sync username:", error);
