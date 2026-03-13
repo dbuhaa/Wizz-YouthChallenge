@@ -69,12 +69,23 @@ export default function IntroScreen({ userId, setUserId, onComplete, isSettings 
         let finalScore = 0;
 
         if (matches.length > 0) {
-          // Survivor is the record with the highest score
-          const survivor = matches.reduce((prev, curr) => (prev.score > curr.score) ? prev : curr);
-          finalUserId = survivor.id;
-          finalScore = survivor.score;
+          // Maximize score across all convergent matches
+          finalScore = Math.max(...matches.map(m => m.score || 0));
+          
+          // Identity Preservation:
+          // Check if WE (current userId) already have a record in the DB
+          const currentRecord = matches.find(m => m.id === userId);
+          
+          if (currentRecord) {
+            // If we exist, we ARE the survivor. We keep our ID.
+            finalUserId = userId;
+          } else {
+            // If we are new/anonymous, adopt the record with the highest score
+            const bestRecord = matches.reduce((prev, curr) => (prev.score > curr.score) ? prev : curr);
+            finalUserId = bestRecord.id;
+          }
 
-          // converge logic: delete all others
+          // 4. Converge: Delete all OTHER records found in the match
           const idsToDelete = matches.map(m => m.id).filter(id => id !== finalUserId);
           if (idsToDelete.length > 0) {
             console.log("Converging accounts, removing duplicates:", idsToDelete);
@@ -82,13 +93,13 @@ export default function IntroScreen({ userId, setUserId, onComplete, isSettings 
           }
         }
 
-        // 4. Adoption: Sync local and global state
+        // 5. Adoption: Sync local and global state
         if (finalUserId !== userId) {
           localStorage.setItem('wizzRouteRushUserId', finalUserId);
           if (setUserId) setUserId(finalUserId);
         }
 
-        // 5. Upsert final survivor record
+        // 6. Upsert final survivor record (Updates username for the survivor ID)
         const updateData = { 
           id: finalUserId, 
           username: trimmedName,
