@@ -21,7 +21,7 @@ export default function PlaneSelectionScreen({ onSelectPlane, onBack }) {
             onChange={() => setSelectedPlane('a320neo')}
             className="hidden-radio"
           />
-          <img src="/plane.png" alt="A320neo" className="plane-preview" />
+          <img src={`${import.meta.env.BASE_URL}plane.png`} alt="A320neo" className="plane-preview" />
           <div className="plane-details">
             <h3>Airbus A320neo</h3>
             <p>Nimble and classic</p>
@@ -37,7 +37,7 @@ export default function PlaneSelectionScreen({ onSelectPlane, onBack }) {
             onChange={() => setSelectedPlane('a321neo')}
             className="hidden-radio"
           />
-          <img src="/plane_a321.png" alt="A321neo" className="plane-preview long" />
+          <img src={`${import.meta.env.BASE_URL}plane_a321.png`} alt="A321neo" className="plane-preview long" />
           <div className="plane-details">
             <h3>Airbus A321neo</h3>
             <p>Extended fuselage, larger hitbox but 10% score bonus!</p>

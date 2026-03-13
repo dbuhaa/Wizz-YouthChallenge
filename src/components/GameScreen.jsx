@@ -55,18 +55,19 @@ export default function GameScreen({ onGameOver, activePlane = 'a320neo' }) {
     const perks = []; // { x, y, radius, type: 'shield' | 'speed' }
 
     // Load Sprites
+    const baseUrl = import.meta.env.BASE_URL;
     const planeImg = new Image();
-    planeImg.src = activePlane === 'a321neo' ? '/plane_a321.png' : '/plane.png';
+    planeImg.src = activePlane === 'a321neo' ? `${baseUrl}plane_a321.png` : `${baseUrl}plane.png`;
     const enemyImg = new Image();
-    enemyImg.src = '/enemy_plane.png';
+    enemyImg.src = `${baseUrl}enemy_plane.png`;
     const stormImg = new Image();
-    stormImg.src = '/storm.png';
+    stormImg.src = `${baseUrl}storm.png`;
     const coinSmallImg = new Image();
-    coinSmallImg.src = '/coin_small.png';
+    coinSmallImg.src = `${baseUrl}coin_small.png`;
     const coinMedImg = new Image();
-    coinMedImg.src = '/coin_medium.png';
+    coinMedImg.src = `${baseUrl}coin_medium.png`;
     const coinLargeImg = new Image();
-    coinLargeImg.src = '/coin_large.png';
+    coinLargeImg.src = `${baseUrl}coin_large.png`;
 
     // Player & Lane Object
     const NUM_LANES = 5;

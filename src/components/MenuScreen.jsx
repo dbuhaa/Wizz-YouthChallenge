@@ -6,7 +6,7 @@ export default function MenuScreen({ onStartGame, onShowLeaderboard, setCurrentS
     <div className="menu-screen screen">
       <div className="menu-header">
         <div className="wizz-logo-container">
-           <img src="/wizz_logo.svg" alt="Wizz Air Logo" className="wizz-official-logo" />
+           <img src={`${import.meta.env.BASE_URL}wizz_logo.svg`} alt="Wizz Air Logo" className="wizz-official-logo" />
         </div>
         <h2 className="menu-title-sub">ROUTE RUSH</h2>
         <p className="menu-subtitle">Race across the network.</p>
@@ -15,7 +15,7 @@ export default function MenuScreen({ onStartGame, onShowLeaderboard, setCurrentS
       
       <div className="menu-plane-preview">
         <div className="plane-mockup">
-           <img src="/plane_a321.png" style={{ height: '100px', transform: 'rotate(45deg)' }} alt="Wizz Air A321neo" />
+           <img src={`${import.meta.env.BASE_URL}plane_a321.png`} style={{ height: '100px', transform: 'rotate(45deg)' }} alt="Wizz Air A321neo" />
         </div>
       </div>
       
