@@ -516,7 +516,8 @@ export default function GameScreen({ onGameOver, onMenu, activePlane = 'a320neo'
         if (dist < col.radius + player.width/2) {
           const speedFactor = effectiveSpeedPPS / INITIAL_SPEED;
           const perkMultiplier = multiplierTimerMs > 0 ? 2 : 1;
-          currentScore += col.scoreVal * speedFactor * perkMultiplier;
+          const planeMultiplier = activePlane === 'a321neo' ? 1.1 : 1.0;
+          currentScore += col.scoreVal * speedFactor * perkMultiplier * planeMultiplier;
           collectibles.splice(i, 1);
         } else if (col.y > height + 50) {
           collectibles.splice(i, 1);
@@ -551,7 +552,8 @@ export default function GameScreen({ onGameOver, onMenu, activePlane = 'a320neo'
       // Base score increase proportional to speed and active perks
       const speedFactor = effectiveSpeedPPS / INITIAL_SPEED;
       const perkMultiplier = speedBoostTimeMs > 0 ? 3 : (multiplierTimerMs > 0 ? 2 : 1);
-      currentScore += 30 * speedFactor * perkMultiplier * (dt / 1000);
+      const planeMultiplier = activePlane === 'a321neo' ? 1.1 : 1.0;
+      currentScore += 30 * speedFactor * perkMultiplier * planeMultiplier * (dt / 1000);
       
       // Direct DOM mutation for score to avoid React re-renders hitting the GPU
       if (scoreRef.current && Math.floor(elapsedTimeMs / 100) > Math.floor((elapsedTimeMs - dt) / 100)) {
