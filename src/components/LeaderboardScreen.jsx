@@ -52,7 +52,7 @@ export default function LeaderboardScreen({ onBack }) {
     <div className="leaderboard-screen screen">
       <div className="leaderboard-header">
         <h2>Global Rankings</h2>
-        <p>Top 200 win WDC prizes every week!</p>
+        <p>Top 200 win WDC prizes at the end of the challenge!</p>
       </div>
 
       <div className="leaderboard-tabs">

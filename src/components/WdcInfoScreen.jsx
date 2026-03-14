@@ -87,7 +87,7 @@ export default function WdcInfoScreen({ onBack }) {
       {/* Value Impact Section */}
       <div className="wdc-value-impact">
         <h3>🎮 What You Can Win</h3>
-        <p>Top 200 players win exclusive WDC rewards every week — from full Premium memberships to discounts and coupons!</p>
+        <p>Top 200 players win exclusive WDC rewards at the end of the challenge — from full Premium memberships to discounts and coupons!</p>
         <div className="value-tiers">
           <div className="value-tier gold">
             <span className="tier-rank">🥇 Rank 1</span>
