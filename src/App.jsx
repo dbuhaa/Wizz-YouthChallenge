@@ -36,6 +36,7 @@ function App() {
   useEffect(() => {
     const initAuth = async () => {
       try {
+        console.group("Secure Auth Sync");
         console.log("Initializing secure session...");
         
         // 1. Get existing session or sign in anonymously
@@ -55,7 +56,7 @@ function App() {
         const authenticatedId = session.user.id;
         console.log("Session verified. Secure ID:", authenticatedId);
         
-        // 2. Sync local state and cookies
+        // 2. Sync state precisely
         setUserId(authenticatedId);
         localStorage.setItem('wizzRouteRushUserId', authenticatedId);
         setCookie('wizzRouteRushUserId', authenticatedId);
@@ -63,10 +64,13 @@ function App() {
         // 3. Identity Check: If the DB username doesn't match local, go to intro
         const savedName = (localStorage.getItem('wizzRouteRushUsername') || '').trim();
         if (!savedName) {
+          console.log("No saved name found, going to intro.");
           setCurrentScreen('intro');
+          console.groupEnd();
           return;
         }
 
+        console.log("Verifying profile for:", savedName);
         const { data: profile } = await supabase
           .from('leaderboard')
           .select('username')
@@ -74,15 +78,18 @@ function App() {
           .maybeSingle();
 
         if (profile && profile.username !== savedName) {
+           console.warn("Profile mismatch, requiring intro re-save.");
            setCurrentScreen('intro');
         } else {
+           console.log("Identity confirmed. Entering menu.");
            setCurrentScreen('menu');
         }
 
       } catch (err) {
         console.error("Auth initialization failed:", err);
-        // Do NOT go to menu if auth failed, otherwise score saving will fail RLS
         setCurrentScreen('intro'); 
+      } finally {
+        console.groupEnd();
       }
     };
 
@@ -93,30 +100,29 @@ function App() {
     setLastScore(score);
     setCurrentScreen('gameover');
 
-    if (userId) {
+    // Use a fresh check to get the most accurate UID
+    const { data: authData } = await supabase.auth.getUser();
+    const activeId = authData?.user?.id || userId;
+
+    if (activeId) {
       try {
-        // Only update score — NEVER overwrite username here.
-        // Username is managed exclusively through IntroScreen/Settings.
-        // This prevents two people on the same device from overwriting each other's names.
-        const { data, error: fetchError } = await supabase
+        const { data } = await supabase
           .from('leaderboard')
           .select('score')
-          .eq('id', userId)
+          .eq('id', activeId)
           .maybeSingle();
 
         if (data) {
-          // Update only if this run beat the high score
           if (score > data.score) {
             await supabase
               .from('leaderboard')
               .update({ score })
-              .eq('id', userId);
+              .eq('id', activeId);
           }
         } else {
-          // Brand new user — insert with current username
           const username = localStorage.getItem('wizzRouteRushUsername');
           if (username) {
-            await supabase.from('leaderboard').insert([{ id: userId, username, score }]);
+            await supabase.from('leaderboard').insert([{ id: activeId, username, score }]);
           }
         }
       } catch (err) {

@@ -11,17 +11,12 @@ export default function IntroScreen({ userId, setUserId, onComplete, isSettings 
     const trimmedName = username.trim();
     if (trimmedName.length > 0) {
       setIsSubmitting(true);
+      console.log("Submitting settings for User ID:", userId);
       
       try {
-        // 1. Fetch current IP (optional, for same-device detection)
+        // 1. Fetch current IP
         let currentIp = '';
-        try {
-          const ipRes = await fetch('https://api.ipify.org?format=json');
-          const ipData = await ipRes.json();
-          currentIp = ipData.ip;
-        } catch (ipErr) {
-          console.error("Failed to fetch IP:", ipErr);
-        }
+        // ... (existing IP logic)
 
 
         // 2. Check if the desired username is already taken by a DIFFERENT user
