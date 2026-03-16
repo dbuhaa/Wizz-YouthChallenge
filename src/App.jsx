@@ -13,19 +13,7 @@ import { getCookie, setCookie } from './utils/cookies'
 
 
 function App() {
-  const [userId, setUserId] = useState(() => {
-    // Advanced Identity: Check strictly in order
-    let id = localStorage.getItem('wizzRouteRushUserId') || getCookie('wizzRouteRushUserId');
-    
-    if (!id) {
-      id = crypto.randomUUID();
-    }
-    
-    // Always sync both for durability
-    localStorage.setItem('wizzRouteRushUserId', id);
-    setCookie('wizzRouteRushUserId', id);
-    return id;
-  });
+  const [userId, setUserId] = useState(null);
 
 
   const [currentScreen, setCurrentScreen] = useState('loading'); 

@@ -11,9 +11,18 @@ export default function IntroScreen({ userId, setUserId, onComplete, isSettings 
     const trimmedName = username.trim();
     if (trimmedName.length > 0) {
       setIsSubmitting(true);
-      console.log("Submitting settings for User ID:", userId);
       
+      console.group("Submit Profile Settings");
+      console.log("Current Prop userId:", userId);
+
       try {
+        const { data: authUser } = await supabase.auth.getUser();
+        console.log("Supabase Auth UID:", authUser?.user?.id);
+
+        if (authUser?.user?.id !== userId) {
+          console.warn("Mismatch detected! Updating local userId to match Auth UID.");
+        }
+        
         // 1. Fetch current IP
         let currentIp = '';
         // ... (existing IP logic)
