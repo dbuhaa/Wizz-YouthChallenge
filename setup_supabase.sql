@@ -29,4 +29,4 @@ USING (auth.uid() = id);
 
 -- 4. Grant basic permissions (RLS still filters these)
 GRANT SELECT ON TABLE public.leaderboard TO anon, authenticated;
-GRANT INSERT, UPDATE ON TABLE public.leaderboard TO authenticated;
+GRANT INSERT, UPDATE ON TABLE public.leaderboard TO anon, authenticated;

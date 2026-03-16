@@ -36,16 +36,24 @@ function App() {
   useEffect(() => {
     const initAuth = async () => {
       try {
+        console.log("Initializing secure session...");
+        
         // 1. Get existing session or sign in anonymously
         let { data: { session } } = await supabase.auth.getSession();
         
         if (!session) {
+          console.log("No session found, signing in anonymously...");
           const { data, error } = await supabase.auth.signInAnonymously();
-          if (error) throw error;
+          if (error) {
+            console.error("Supabase Auth Error:", error.message);
+            alert("Security Error: Please ensure Anonymous Auth is enabled in your Supabase Dashboard.");
+            throw error;
+          }
           session = data.session;
         }
 
         const authenticatedId = session.user.id;
+        console.log("Session verified. Secure ID:", authenticatedId);
         
         // 2. Sync local state and cookies
         setUserId(authenticatedId);
@@ -66,21 +74,20 @@ function App() {
           .maybeSingle();
 
         if (profile && profile.username !== savedName) {
-          // This should be rare with proper Auth, but keep for consistency
-          setCurrentScreen('intro');
+           setCurrentScreen('intro');
         } else {
-          setCurrentScreen('menu');
+           setCurrentScreen('menu');
         }
 
       } catch (err) {
         console.error("Auth initialization failed:", err);
-        // Fallback to intro if auth fails
-        setCurrentScreen('intro');
+        // Do NOT go to menu if auth failed, otherwise score saving will fail RLS
+        setCurrentScreen('intro'); 
       }
     };
 
     initAuth();
-  }, []); // Only run once on mount
+  }, []);
 
   const handleGameOver = async (score) => {
     setLastScore(score);
