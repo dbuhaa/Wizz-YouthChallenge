@@ -13,104 +13,95 @@ import { getCookie, setCookie } from './utils/cookies'
 
 
 function App() {
-  const [userId, setUserId] = useState(null);
+  const [userId, setUserId] = useState(() => {
+    // Advanced Identity: Check strictly in order
+    let id = localStorage.getItem('wizzRouteRushUserId') || getCookie('wizzRouteRushUserId');
+    
+    if (!id) {
+      id = crypto.randomUUID();
+    }
+    
+    // Always sync both for durability
+    localStorage.setItem('wizzRouteRushUserId', id);
+    setCookie('wizzRouteRushUserId', id);
+    return id;
+  });
 
 
   const [currentScreen, setCurrentScreen] = useState('loading'); 
   const [lastScore, setLastScore] = useState(0);
   const [activePlane, setActivePlane] = useState('a320neo');
 
-  // Startup identity verification: Ensure the user is signed in anonymously
+  // Startup identity verification: Detect if our userId was hijacked by the old
+  // IP convergence bug. If the DB record has a different name, fork off a new identity.
   useEffect(() => {
-    const initAuth = async () => {
+    const verifyIdentity = async () => {
+      const savedName = (localStorage.getItem('wizzRouteRushUsername') || '').trim();
+      
+      // No username saved → new user, go to intro
+      if (!savedName) {
+        setCurrentScreen('intro');
+        return;
+      }
+
       try {
-        console.group("Secure Auth Sync");
-        console.log("Initializing secure session...");
-        
-        // 1. Get existing session or sign in anonymously
-        let { data: { session } } = await supabase.auth.getSession();
-        
-        if (!session) {
-          console.log("No session found, signing in anonymously...");
-          const { data, error } = await supabase.auth.signInAnonymously();
-          if (error) {
-            console.error("Supabase Auth Error:", error.message);
-            alert("Security Error: Please ensure Anonymous Auth is enabled in your Supabase Dashboard.");
-            throw error;
-          }
-          session = data.session;
-        }
-
-        const authenticatedId = session.user.id;
-        console.log("Session verified. Secure ID:", authenticatedId);
-        
-        // 2. Sync state precisely
-        setUserId(authenticatedId);
-        localStorage.setItem('wizzRouteRushUserId', authenticatedId);
-        setCookie('wizzRouteRushUserId', authenticatedId);
-
-        // 3. Identity Check: If the DB username doesn't match local, go to intro
-        const savedName = (localStorage.getItem('wizzRouteRushUsername') || '').trim();
-        if (!savedName) {
-          console.log("No saved name found, going to intro.");
-          setCurrentScreen('intro');
-          console.groupEnd();
-          return;
-        }
-
-        console.log("Verifying profile for:", savedName);
-        const { data: profile } = await supabase
+        const { data } = await supabase
           .from('leaderboard')
           .select('username')
-          .eq('id', authenticatedId)
+          .eq('id', userId)
           .maybeSingle();
 
-        if (profile && profile.username !== savedName) {
-           console.warn("Profile mismatch, requiring intro re-save.");
-           setCurrentScreen('intro');
-        } else {
-           console.log("Identity confirmed. Entering menu.");
-           setCurrentScreen('menu');
+        if (data && data.username !== savedName) {
+          // DB record exists but has a DIFFERENT name → someone else took over our userId
+          // via the old IP merge. Fork: generate a fresh ID for THIS user.
+          console.warn(`Identity mismatch: local="${savedName}" vs db="${data.username}". Creating fresh identity.`);
+          const newId = crypto.randomUUID();
+          localStorage.setItem('wizzRouteRushUserId', newId);
+          setCookie('wizzRouteRushUserId', newId);
+          setUserId(newId);
+          // Send to intro so they can re-register under the new ID
+          setCurrentScreen('intro');
+          return;
         }
-
       } catch (err) {
-        console.error("Auth initialization failed:", err);
-        setCurrentScreen('intro'); 
-      } finally {
-        console.groupEnd();
+        console.warn("Identity check failed, proceeding normally:", err);
       }
+
+      // Everything checks out — go to menu
+      setCurrentScreen('menu');
     };
 
-    initAuth();
-  }, []);
+    verifyIdentity();
+  }, []); // Only run once on mount
 
   const handleGameOver = async (score) => {
     setLastScore(score);
     setCurrentScreen('gameover');
 
-    // Use a fresh check to get the most accurate UID
-    const { data: authData } = await supabase.auth.getUser();
-    const activeId = authData?.user?.id || userId;
-
-    if (activeId) {
+    if (userId) {
       try {
-        const { data } = await supabase
+        // Only update score — NEVER overwrite username here.
+        // Username is managed exclusively through IntroScreen/Settings.
+        // This prevents two people on the same device from overwriting each other's names.
+        const { data, error: fetchError } = await supabase
           .from('leaderboard')
           .select('score')
-          .eq('id', activeId)
+          .eq('id', userId)
           .maybeSingle();
 
         if (data) {
+          // Update only if this run beat the high score
           if (score > data.score) {
             await supabase
               .from('leaderboard')
               .update({ score })
-              .eq('id', activeId);
+              .eq('id', userId);
           }
         } else {
+          // Brand new user — insert with current username
           const username = localStorage.getItem('wizzRouteRushUsername');
           if (username) {
-            await supabase.from('leaderboard').insert([{ id: activeId, username, score }]);
+            await supabase.from('leaderboard').insert([{ id: userId, username, score }]);
           }
         }
       } catch (err) {

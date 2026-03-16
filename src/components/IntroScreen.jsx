@@ -12,20 +12,16 @@ export default function IntroScreen({ userId, setUserId, onComplete, isSettings 
     if (trimmedName.length > 0) {
       setIsSubmitting(true);
       
-      console.group("Submit Profile Settings");
-      console.log("Current Prop userId:", userId);
-
       try {
-        const { data: authUser } = await supabase.auth.getUser();
-        console.log("Supabase Auth UID:", authUser?.user?.id);
-
-        if (authUser?.user?.id !== userId) {
-          console.warn("Mismatch detected! Updating local userId to match Auth UID.");
-        }
-        
-        // 1. Fetch current IP
+        // 1. Fetch current IP (optional, for same-device detection)
         let currentIp = '';
-        // ... (existing IP logic)
+        try {
+          const ipRes = await fetch('https://api.ipify.org?format=json');
+          const ipData = await ipRes.json();
+          currentIp = ipData.ip;
+        } catch (ipErr) {
+          console.error("Failed to fetch IP:", ipErr);
+        }
 
 
         // 2. Check if the desired username is already taken by a DIFFERENT user
