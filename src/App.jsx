@@ -32,46 +32,54 @@ function App() {
   const [lastScore, setLastScore] = useState(0);
   const [activePlane, setActivePlane] = useState('a320neo');
 
-  // Startup identity verification: Detect if our userId was hijacked by the old
-  // IP convergence bug. If the DB record has a different name, fork off a new identity.
+  // Startup identity verification: Ensure the user is signed in anonymously
   useEffect(() => {
-    const verifyIdentity = async () => {
-      const savedName = (localStorage.getItem('wizzRouteRushUsername') || '').trim();
-      
-      // No username saved → new user, go to intro
-      if (!savedName) {
-        setCurrentScreen('intro');
-        return;
-      }
-
+    const initAuth = async () => {
       try {
-        const { data } = await supabase
-          .from('leaderboard')
-          .select('username')
-          .eq('id', userId)
-          .maybeSingle();
+        // 1. Get existing session or sign in anonymously
+        let { data: { session } } = await supabase.auth.getSession();
+        
+        if (!session) {
+          const { data, error } = await supabase.auth.signInAnonymously();
+          if (error) throw error;
+          session = data.session;
+        }
 
-        if (data && data.username !== savedName) {
-          // DB record exists but has a DIFFERENT name → someone else took over our userId
-          // via the old IP merge. Fork: generate a fresh ID for THIS user.
-          console.warn(`Identity mismatch: local="${savedName}" vs db="${data.username}". Creating fresh identity.`);
-          const newId = crypto.randomUUID();
-          localStorage.setItem('wizzRouteRushUserId', newId);
-          setCookie('wizzRouteRushUserId', newId);
-          setUserId(newId);
-          // Send to intro so they can re-register under the new ID
+        const authenticatedId = session.user.id;
+        
+        // 2. Sync local state and cookies
+        setUserId(authenticatedId);
+        localStorage.setItem('wizzRouteRushUserId', authenticatedId);
+        setCookie('wizzRouteRushUserId', authenticatedId);
+
+        // 3. Identity Check: If the DB username doesn't match local, go to intro
+        const savedName = (localStorage.getItem('wizzRouteRushUsername') || '').trim();
+        if (!savedName) {
           setCurrentScreen('intro');
           return;
         }
-      } catch (err) {
-        console.warn("Identity check failed, proceeding normally:", err);
-      }
 
-      // Everything checks out — go to menu
-      setCurrentScreen('menu');
+        const { data: profile } = await supabase
+          .from('leaderboard')
+          .select('username')
+          .eq('id', authenticatedId)
+          .maybeSingle();
+
+        if (profile && profile.username !== savedName) {
+          // This should be rare with proper Auth, but keep for consistency
+          setCurrentScreen('intro');
+        } else {
+          setCurrentScreen('menu');
+        }
+
+      } catch (err) {
+        console.error("Auth initialization failed:", err);
+        // Fallback to intro if auth fails
+        setCurrentScreen('intro');
+      }
     };
 
-    verifyIdentity();
+    initAuth();
   }, []); // Only run once on mount
 
   const handleGameOver = async (score) => {

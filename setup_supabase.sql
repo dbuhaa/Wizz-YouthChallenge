@@ -1,22 +1,32 @@
+-- 1. Create table (id is uuid, maps to Supabase Auth UID)
 CREATE TABLE IF NOT EXISTS public.leaderboard (
-  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  id uuid PRIMARY KEY, -- No default gen_random_uuid(), we'll use Auth UID
   username text UNIQUE NOT NULL,
   score integer DEFAULT 0 NOT NULL,
-  ip text, -- Added for IP-based account recovery
+  ip text, 
   created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
--- Migration for users who already have the table:
-DO $$ 
-BEGIN 
-  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='leaderboard' AND column_name='ip') THEN
-    ALTER TABLE public.leaderboard ADD COLUMN ip text;
-  END IF;
-END $$;
+-- 2. Enable Row Level Security (RLS)
+ALTER TABLE public.leaderboard ENABLE ROW LEVEL SECURITY;
 
--- 2. Turn off Row Level Security (RLS) entirely so the public game can read/write to it freely
-ALTER TABLE public.leaderboard DISABLE ROW LEVEL SECURITY;
+-- 3. Define Policies
 
--- 3. (Optional but good practice) Explicitly grant permissions to the anon role 
-GRANT ALL ON TABLE public.leaderboard TO anon;
-GRANT ALL ON TABLE public.leaderboard TO authenticated;
+-- Allow anyone to read the leaderboard
+CREATE POLICY "Public can view leaderboard" 
+ON public.leaderboard FOR SELECT 
+USING (true);
+
+-- Allow authenticated users to insert their own record
+CREATE POLICY "Users can insert their own record" 
+ON public.leaderboard FOR INSERT 
+WITH CHECK (auth.uid() = id);
+
+-- Allow authenticated users to update their own score
+CREATE POLICY "Users can update their own record" 
+ON public.leaderboard FOR UPDATE 
+USING (auth.uid() = id);
+
+-- 4. Grant basic permissions (RLS still filters these)
+GRANT SELECT ON TABLE public.leaderboard TO anon, authenticated;
+GRANT INSERT, UPDATE ON TABLE public.leaderboard TO authenticated;
